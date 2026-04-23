@@ -242,7 +242,16 @@ def display_slack_summary(branch_name: str, ticket_id: str | None) -> None:
     try:
         summary = get_recent_messages(branch_name, ticket_id, max_messages=3)
     except Exception as exc:
-        console.print(f"[bold red]Slack summary failed:[/bold red] {exc}")
+        err_str = str(exc)
+        if "invalid_auth" in err_str:
+            console.print(
+                "[yellow]Slack: token expired or invalid. "
+                "Run 'cb init' to update your Slack token.[/yellow]"
+            )
+        else:
+            console.print(
+                f"[yellow]Slack: could not fetch messages ({err_str.split(';')[0].strip()})[/yellow]"
+            )
         return
 
     messages = summary.get("messages", [])

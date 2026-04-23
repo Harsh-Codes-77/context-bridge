@@ -11,28 +11,20 @@
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              display: ["Space Grotesk", "sans-serif"],
-              mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
-            },
-            boxShadow: {
-              glow: "0 0 0 1px rgba(56,189,248,0.35), 0 20px 45px rgba(15,23,42,0.55)",
-            },
-          },
-        },
-      };
-    </script>
     <style>
+      /* ── Reset & Base ── */
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
       body {
+        font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
         background:
           radial-gradient(1200px 500px at 0% -10%, rgba(6, 182, 212, 0.2), transparent 60%),
           radial-gradient(900px 420px at 100% 0%, rgba(56, 189, 248, 0.16), transparent 58%),
           linear-gradient(180deg, #030712 0%, #0b1222 50%, #030712 100%);
+        color: #e2e8f0;
+        min-height: 100vh;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
       }
 
       .grid-noise {
@@ -40,88 +32,325 @@
           linear-gradient(rgba(148, 163, 184, 0.07) 1px, transparent 1px),
           linear-gradient(90deg, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
         background-size: 26px 26px;
+        min-height: 100vh;
       }
 
-      .fade-in {
+      /* ── Layout ── */
+      .container {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+      }
+
+      @media (min-width: 640px) { .container { padding: 2rem 1.5rem; } }
+      @media (min-width: 1024px) { .container { padding: 2rem 2rem; } }
+
+      /* ── Typography ── */
+      .font-mono {
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'Cascadia Code', monospace;
+      }
+
+      .text-xs { font-size: 0.75rem; line-height: 1rem; }
+      .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+      .text-2xl { font-size: 1.5rem; line-height: 2rem; }
+      .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+      .font-bold { font-weight: 700; }
+      .font-semibold { font-weight: 600; }
+      .uppercase { text-transform: uppercase; }
+      .tracking-wider { letter-spacing: 0.05em; }
+      .tracking-tight { letter-spacing: -0.025em; }
+
+      /* ── Colors ── */
+      .text-slate-100 { color: #f1f5f9; }
+      .text-slate-200 { color: #e2e8f0; }
+      .text-slate-300 { color: #cbd5e1; }
+      .text-slate-400 { color: #94a3b8; }
+      .text-cyan-200 { color: #a5f3fc; }
+      .text-cyan-300 { color: #67e8f9; }
+      .text-emerald-300 { color: #6ee7b7; }
+      .text-violet-300 { color: #c4b5fd; }
+
+      /* ── Header ── */
+      .header {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        border-radius: 1rem;
+        border: 1px solid rgba(34, 211, 238, 0.3);
+        background: rgba(2, 6, 23, 0.75);
+        padding: 1.25rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35), 0 20px 45px rgba(15, 23, 42, 0.55);
+        backdrop-filter: blur(12px);
+      }
+
+      @media (min-width: 640px) {
+        .header {
+          flex-direction: row;
+          align-items: center;
+          justify-content: space-between;
+        }
+      }
+
+      .header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.025em; color: #f1f5f9; }
+      @media (min-width: 640px) { .header h1 { font-size: 1.875rem; } }
+      .header .subtitle { margin-top: 0.25rem; font-size: 0.875rem; color: #cbd5e1; }
+
+      .header-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .time-badge {
+        border-radius: 0.5rem;
+        border: 1px solid #334155;
+        background: rgba(15, 23, 42, 0.8);
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        color: #e2e8f0;
+      }
+
+      .time-badge .label { color: #94a3b8; }
+
+      /* ── Buttons ── */
+      .btn-refresh {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-radius: 0.5rem;
+        border: 1px solid rgba(34, 211, 238, 0.6);
+        background: rgba(6, 182, 212, 0.1);
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #a5f3fc;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        font-family: inherit;
+      }
+
+      .btn-refresh:hover {
+        background: rgba(34, 211, 238, 0.2);
+        transform: translateY(-1px);
+      }
+
+      .btn-refresh:active { transform: translateY(0); }
+      .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      .refresh-dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+        background: #67e8f9;
+        display: inline-block;
+      }
+
+      .refresh-dot.pulsing {
+        animation: pulse 1s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+      }
+
+      /* ── Status bar ── */
+      .status-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+      }
+
+      /* ── Grid ── */
+      .sessions-grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: 1fr;
+      }
+
+      @media (min-width: 640px) { .sessions-grid { grid-template-columns: repeat(2, 1fr); } }
+      @media (min-width: 1280px) { .sessions-grid { grid-template-columns: repeat(3, 1fr); } }
+
+      /* ── Cards ── */
+      .card {
+        border-radius: 0.75rem;
+        border: 1px solid rgba(51, 65, 85, 0.8);
+        background: rgba(15, 23, 42, 0.8);
+        padding: 1rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        transition: all 0.2s ease;
         animation: rise 500ms ease-out both;
       }
 
-      @keyframes rise {
-        from {
-          opacity: 0;
-          transform: translateY(10px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
+      .card:hover {
+        border-color: rgba(34, 211, 238, 0.4);
+        box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35), 0 20px 45px rgba(15, 23, 42, 0.55);
       }
+
+      @keyframes rise {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .card-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .branch-name {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #a5f3fc;
+      }
+
+      .time-tag {
+        border-radius: 0.375rem;
+        border: 1px solid #334155;
+        background: #020617;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        color: #cbd5e1;
+        white-space: nowrap;
+      }
+
+      .repo-name {
+        font-size: 0.875rem;
+        color: #cbd5e1;
+        margin-bottom: 1rem;
+      }
+
+      .context-age {
+        font-size: 0.75rem;
+        color: #94a3b8;
+        margin-bottom: 1rem;
+      }
+
+      /* ── Files ── */
+      .files-section { margin-bottom: 1rem; }
+      .section-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        margin-bottom: 0.5rem;
+      }
+
+      .files-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+
+      .file-tag {
+        border-radius: 0.375rem;
+        border: 1px solid #334155;
+        background: #020617;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        font-family: 'JetBrains Mono', monospace;
+        color: #e2e8f0;
+      }
+
+      /* ── Integration sections ── */
+      .integration-box {
+        border-radius: 0.5rem;
+        border: 1px solid #334155;
+        background: rgba(2, 6, 23, 0.7);
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+      }
+
+      .integration-box:last-child { margin-bottom: 0; }
+
+      .integration-box .label-github { color: #67e8f9; }
+      .integration-box .label-linear { color: #6ee7b7; }
+      .integration-box .label-slack { color: #c4b5fd; }
+
+      .integration-box .content { font-size: 0.875rem; color: #e2e8f0; }
+      .integration-box .meta { font-size: 0.75rem; color: #cbd5e1; margin-top: 0.25rem; }
+
+      /* ── Empty state ── */
+      .empty-state {
+        grid-column: 1 / -1;
+        border-radius: 0.75rem;
+        border: 1px solid #334155;
+        background: rgba(15, 23, 42, 0.7);
+        padding: 2rem;
+        text-align: center;
+        color: #cbd5e1;
+      }
+
+      .slack-empty { font-size: 0.75rem; color: #94a3b8; }
+      .slack-msg { font-size: 0.75rem; color: #cbd5e1; }
     </style>
   </head>
 
-  <body class="min-h-screen text-slate-100 font-display">
-    <div class="grid-noise min-h-screen">
-      <main class="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <section class="mb-8 flex flex-col gap-4 rounded-2xl border border-cyan-400/30 bg-slate-950/75 p-5 shadow-glow backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+  <body>
+    <div class="grid-noise">
+      <main class="container">
+        <section class="header">
           <div>
-            <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">context-bridge dashboard</h1>
-            <p class="mt-1 text-sm text-slate-300">Developer context timeline across branches</p>
+            <h1>context-bridge dashboard</h1>
+            <p class="subtitle">Developer context timeline across branches</p>
           </div>
 
-          <div class="flex items-center gap-3">
-            <div class="rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-200">
-              <span class="text-slate-400">Current time:</span>
-              <span id="current-time" class="ml-2 font-mono"></span>
+          <div class="header-controls">
+            <div class="time-badge">
+              <span class="label">Current time:</span>
+              <span id="current-time" class="font-mono" style="margin-left: 0.5rem;"></span>
             </div>
-            <button
-              id="refresh-btn"
-              class="inline-flex items-center gap-2 rounded-lg border border-cyan-400/60 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0"
-            >
-              <span id="refresh-dot" class="h-2 w-2 rounded-full bg-cyan-300"></span>
+            <button id="refresh-btn" class="btn-refresh">
+              <span id="refresh-dot" class="refresh-dot"></span>
               Refresh
             </button>
           </div>
         </section>
 
-        <section class="mb-5 flex items-center justify-between">
+        <section class="status-bar">
           <p id="session-count" class="text-sm text-slate-300"></p>
           <p id="status-msg" class="text-xs text-slate-400"></p>
         </section>
 
-        <section id="sessions-grid" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"></section>
+        <section id="sessions-grid" class="sessions-grid"></section>
 
         <template id="session-card-template">
-          <article class="fade-in rounded-xl border border-slate-700/80 bg-slate-900/80 p-4 shadow-md transition hover:border-cyan-400/40 hover:shadow-glow">
-            <div class="mb-3 flex items-start justify-between gap-4">
-              <h2 class="session-branch font-mono text-sm font-semibold text-cyan-200"></h2>
-              <span class="session-last-active rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-300"></span>
+          <article class="card">
+            <div class="card-header">
+              <h2 class="session-branch branch-name"></h2>
+              <span class="session-last-active time-tag"></span>
             </div>
 
-            <p class="session-repo mb-4 text-sm text-slate-300"></p>
+            <p class="session-repo repo-name"></p>
 
-            <p class="session-context-age mb-4 text-xs text-slate-400"></p>
+            <p class="session-context-age context-age"></p>
 
-            <div class="mb-4">
-              <p class="mb-2 text-xs uppercase tracking-wider text-slate-400">Files touched</p>
-              <div class="session-files flex flex-wrap gap-2"></div>
+            <div class="files-section">
+              <p class="section-label">Files touched</p>
+              <div class="session-files files-wrap"></div>
             </div>
 
-            <div class="mb-4 rounded-lg border border-slate-700 bg-slate-950/70 p-3">
-              <p class="mb-2 text-xs uppercase tracking-wider text-cyan-300">GitHub</p>
-              <p class="session-pr text-sm text-slate-200"></p>
-              <p class="session-comments mt-1 text-xs text-slate-300"></p>
-              <p class="session-ci mt-1 text-xs text-slate-300"></p>
+            <div class="integration-box">
+              <p class="section-label label-github">GitHub</p>
+              <p class="session-pr content"></p>
+              <p class="session-comments meta"></p>
+              <p class="session-ci meta"></p>
             </div>
 
-            <div class="mb-4 rounded-lg border border-slate-700 bg-slate-950/70 p-3">
-              <p class="mb-2 text-xs uppercase tracking-wider text-emerald-300">Linear</p>
-              <p class="session-ticket text-sm text-slate-200"></p>
-              <p class="session-linear-meta mt-1 text-xs text-slate-300"></p>
+            <div class="integration-box">
+              <p class="section-label label-linear">Linear</p>
+              <p class="session-ticket content"></p>
+              <p class="session-linear-meta meta"></p>
             </div>
 
-            <div class="rounded-lg border border-slate-700 bg-slate-950/70 p-3">
-              <p class="mb-2 text-xs uppercase tracking-wider text-violet-300">Slack</p>
-              <div class="session-slack flex flex-col gap-1"></div>
+            <div class="integration-box">
+              <p class="section-label label-slack">Slack</p>
+              <div class="session-slack"></div>
             </div>
           </article>
         </template>
@@ -189,7 +418,7 @@
         if (labels.length === 0) {
           node.textContent = "No cached integration context yet";
         } else {
-          node.textContent = `Cache age -> ${labels.join(" | ")}`;
+          node.textContent = `Cache age → ${labels.join(" | ")}`;
         }
       }
 
@@ -244,7 +473,7 @@
         const messages = Array.isArray(slack.messages) ? slack.messages : [];
         if (messages.length === 0) {
           const empty = document.createElement("p");
-          empty.className = "text-xs text-slate-400";
+          empty.className = "slack-empty";
           empty.textContent = "No recent matching Slack messages";
           wrap.appendChild(empty);
           return;
@@ -252,7 +481,7 @@
 
         for (const msg of messages.slice(0, 2)) {
           const line = document.createElement("p");
-          line.className = "text-xs text-slate-300";
+          line.className = "slack-msg";
           const author = msg.author || "Unknown";
           const channel = msg.channel || "unknown";
           const text = msg.text || "";
@@ -266,8 +495,8 @@
 
         if (!Array.isArray(sessions) || sessions.length === 0) {
           sessionsGrid.innerHTML = `
-            <div class="col-span-full rounded-xl border border-slate-700 bg-slate-900/70 p-8 text-center text-slate-300">
-              No sessions yet. Run cb status from your repository to populate context.
+            <div class="empty-state">
+              No sessions yet. Run <strong>cb status</strong> from your repository to populate context.
             </div>
           `;
           sessionCount.textContent = "0 sessions";
@@ -287,11 +516,11 @@
           const files = Array.isArray(session.files_touched) ? session.files_touched : [];
 
           if (files.length === 0) {
-            filesWrap.innerHTML = '<span class="rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-400">No files</span>';
+            filesWrap.innerHTML = '<span class="file-tag" style="color:#94a3b8;">No files</span>';
           } else {
             for (const file of files) {
               const tag = document.createElement("span");
-              tag.className = "rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs font-mono text-slate-200";
+              tag.className = "file-tag";
               tag.textContent = file;
               filesWrap.appendChild(tag);
             }
@@ -334,7 +563,7 @@
         }
 
         refreshBtn.disabled = true;
-        refreshDot.classList.add("animate-pulse");
+        refreshDot.classList.add("pulsing");
         statusMsg.textContent = isAuto ? "Auto-refreshing live context..." : "Refreshing context...";
 
         try {
@@ -359,7 +588,7 @@
           statusMsg.textContent = "Refresh request failed";
         } finally {
           refreshBtn.disabled = false;
-          refreshDot.classList.remove("animate-pulse");
+          refreshDot.classList.remove("pulsing");
           await loadSessions();
         }
       }
