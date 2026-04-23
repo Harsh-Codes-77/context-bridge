@@ -329,7 +329,11 @@ def run_status_logic(interactive: bool = True, render: bool = True) -> dict[str,
 # CLI definition
 # ===================================================================
 
-@click.group(help="Context Bridge developer productivity commands.")
+@click.group(
+    help="Context Bridge — your dev tools, unified.\n\n"
+    "Pulls context from GitHub, Linear, and Slack so you never lose\n"
+    "track of where you left off. Run 'cb status' to get started.",
+)
 def cli() -> None:
     """Main CLI group for cb commands."""
 
@@ -338,7 +342,12 @@ def cli() -> None:
 # cb status
 # ---------------------------------------------------------------------------
 
-@cli.command(help="Fetch GitHub + Linear + Slack context for the current branch.")
+@cli.command(
+    help="Fetch GitHub + Linear + Slack context for the current branch.\n\n"
+    "Shows PR status, CI results, Linear ticket details, and recent\n"
+    "Slack messages — all in one view. Uses the active repo set via\n"
+    "'cb repo'.",
+)
 def status() -> None:
     """Show cross-tool context and persist the current session."""
     console.print("[cyan]Fetching your context...[/cyan]")
@@ -353,7 +362,11 @@ def status() -> None:
 # cb resume
 # ---------------------------------------------------------------------------
 
-@cli.command(help="Resume context from your last session on this branch.")
+@cli.command(
+    help="Resume context from your last session on this branch.\n\n"
+    "Shows when you were last active, which files you touched,\n"
+    "what changed while you were away, and suggests a next step.",
+)
 def resume() -> None:
     """Show last session details and suggest the next action."""
     # Ensure an active repo is set before attempting anything.
@@ -427,7 +440,12 @@ def resume() -> None:
 # cb init
 # ---------------------------------------------------------------------------
 
-@cli.command(help="Run first-time setup for tokens and default repo.")
+@cli.command(
+    help="Run first-time setup for API tokens and default repo.\n\n"
+    "Saves GitHub, Linear, and Slack tokens to ~/.context-bridge/.env.\n"
+    "Optionally sets a default repo (you can also add repos later\n"
+    "with 'cb repo add').",
+)
 def init() -> None:
     """Interactive setup wizard for token env and default repo config.
 
@@ -489,7 +507,11 @@ def init() -> None:
 # cb doctor
 # ---------------------------------------------------------------------------
 
-@cli.command(help="Check cb installation and local configuration health.")
+@cli.command(
+    help="Check cb installation and local configuration health.\n\n"
+    "Shows token status, active repo, executable paths, and .env\n"
+    "file locations. Useful for debugging setup issues.",
+)
 def doctor() -> None:
     """Print diagnostic details for installation, token files, and config."""
     cb_path = shutil.which("cb") or "Not found in PATH"
@@ -528,7 +550,11 @@ def doctor() -> None:
 # cb web
 # ---------------------------------------------------------------------------
 
-@cli.command(help="Start local context-bridge web dashboard.")
+@cli.command(
+    help="Start local context-bridge web dashboard.\n\n"
+    "Opens a browser to http://localhost:4242 with a live view of\n"
+    "all your branch sessions, PR status, and integration data.",
+)
 def web() -> None:
     """Start Flask dashboard on localhost and open it in a browser."""
     from dashboard.app import run_dashboard
@@ -543,12 +569,27 @@ def web() -> None:
 # cb repo — command group for multi-repo management
 # ---------------------------------------------------------------------------
 
-@cli.group(help="Manage saved repos. Tokens stay the same — only repos change.")
+@cli.group(
+    help="Manage saved repos — add, switch, list, or remove.\n\n"
+    "Tokens (GitHub, Linear, Slack) stay the same — only the active\n"
+    "repo changes. You can save multiple repos and switch between\n"
+    "them instantly with 'cb repo use'.\n\n"
+    "Examples:\n\n"
+    "  cb repo add  harsh/my-app      # Add and activate\n\n"
+    "  cb repo use  harsh/other-app   # Switch active repo\n\n"
+    "  cb repo list                   # Show all saved repos\n\n"
+    "  cb repo current                # Show active repo",
+)
 def repo() -> None:
     """Parent group for repo subcommands (add, use, list, remove, current)."""
 
 
-@repo.command("add", help="Add a new repo and set it as active.")
+@repo.command(
+    "add",
+    help="Add a new repo and set it as active.\n\n"
+    "FULL_NAME must be in owner/repo format (e.g. harsh/my-app).\n"
+    "If the repo was already added, it is simply set as active.",
+)
 @click.argument("full_name")
 def repo_add(full_name: str) -> None:
     """Add a repo to the saved list and activate it.
@@ -579,7 +620,12 @@ def repo_add(full_name: str) -> None:
     )
 
 
-@repo.command("use", help="Switch the active repo to an already-saved one.")
+@repo.command(
+    "use",
+    help="Switch the active repo to an already-saved one.\n\n"
+    "The repo must have been previously added with 'cb repo add'.\n"
+    "All subsequent 'cb status' and 'cb resume' calls will use it.",
+)
 @click.argument("full_name")
 def repo_use(full_name: str) -> None:
     """Switch active repo. The repo must already be added.
@@ -599,7 +645,11 @@ def repo_use(full_name: str) -> None:
     console.print(f"[green]✓[/green] Switched to [bold]'{full_name}'[/bold]")
 
 
-@repo.command("list", help="Show all saved repos.")
+@repo.command(
+    "list",
+    help="Show all saved repos in a table.\n\n"
+    "The currently active repo is highlighted in green.",
+)
 def repo_list() -> None:
     """Display a Rich table of all saved repos with active status."""
     repos = list_repos()
@@ -631,7 +681,12 @@ def repo_list() -> None:
     console.print(f"[dim]Total repos: {len(repos)}[/dim]")
 
 
-@repo.command("remove", help="Remove a saved repo.")
+@repo.command(
+    "remove",
+    help="Remove a saved repo after confirmation.\n\n"
+    "If the removed repo was the active one, you will be\n"
+    "prompted to set a new active repo.",
+)
 @click.argument("full_name")
 def repo_remove(full_name: str) -> None:
     """Remove a repo from the saved list after user confirmation.
@@ -662,7 +717,11 @@ def repo_remove(full_name: str) -> None:
         )
 
 
-@repo.command("current", help="Show the currently active repo.")
+@repo.command(
+    "current",
+    help="Show the currently active repo.\n\n"
+    "If no repo is set, shows a hint to run 'cb repo add'.",
+)
 def repo_current() -> None:
     """Print the currently active repo name, or a hint if none is set."""
     active = get_active_repo()

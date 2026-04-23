@@ -87,7 +87,8 @@ cb web
 cb doctor
 ```
 
-`cb init` saves tokens to `~/.context-bridge/.env`.
+`cb init` saves tokens to `~/.context-bridge/.env` and optionally sets a default repo.
+You can manage repos anytime with `cb repo` — no need to re-enter tokens.
 
 ---
 
@@ -145,10 +146,71 @@ cb web
 ---
 
 ### `cb init`
-Interactive setup wizard. Run once per project.
+Interactive setup wizard. Run once to configure your API tokens.
 
 ```bash
 cb init
+```
+
+Tokens are saved to `~/.context-bridge/.env`. You can optionally set a default repo during init,
+or skip it and add repos later with `cb repo add`.
+
+---
+
+### `cb repo`
+Manage multiple repos without re-entering tokens. Add, switch, list, or remove repos anytime.
+
+#### `cb repo add <owner/repo>`
+Add a new repo and set it as the active one.
+
+```bash
+cb repo add harsh/my-app
+# ✓ Added and set 'harsh/my-app' as active repo
+
+cb repo add harsh/other-project
+# ✓ Added and set 'harsh/other-project' as active repo
+```
+
+#### `cb repo use <owner/repo>`
+Switch the active repo to one you've already added.
+
+```bash
+cb repo use harsh/my-app
+# ✓ Switched to 'harsh/my-app'
+```
+
+#### `cb repo list`
+Show all saved repos. The active repo is highlighted in green.
+
+```bash
+cb repo list
+```
+```
+                   Saved Repos
+┏━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ Name          ┃ Full Name           ┃  Status  ┃
+┡━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━┩
+│ my-app        │ harsh/my-app        │ Active ✓ │
+│ other-project │ harsh/other-project │    -     │
+└───────────────┴─────────────────────┴──────────┘
+Total repos: 2
+```
+
+#### `cb repo current`
+Print the currently active repo.
+
+```bash
+cb repo current
+# Active repo: harsh/my-app
+```
+
+#### `cb repo remove <owner/repo>`
+Remove a saved repo (asks for confirmation first).
+
+```bash
+cb repo remove harsh/other-project
+# Remove harsh/other-project? [y/N]: y
+# ✓ Removed 'harsh/other-project'
 ```
 
 ---
@@ -219,8 +281,7 @@ Everything is **100% local**. Here's what we store and where:
 
 ```
 ~/.context-bridge/
-├── data.db          ← SQLite: your sessions & context cache
-├── config.json      ← Your default repo setting
+├── data.db          ← SQLite: sessions, context cache, and saved repos
 └── .env             ← Your API tokens (written by cb init)
 
 your-project/
@@ -291,6 +352,7 @@ context-bridge/
 - [x] `cb status` command
 - [x] `cb resume` command
 - [x] Local web dashboard
+- [x] Multi-repo management (`cb repo`)
 - [ ] GitLab support
 - [ ] Jira integration
 - [ ] VS Code extension
