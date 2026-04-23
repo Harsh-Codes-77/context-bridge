@@ -70,6 +70,20 @@ def init_db() -> None:
             """
         )
 
+        # Repos table: stores saved repositories independently from tokens.
+        # Only one repo can be active at a time (is_active=1).
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS repos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                full_name TEXT NOT NULL UNIQUE,
+                is_active INTEGER NOT NULL DEFAULT 0,
+                added_at TEXT NOT NULL
+            )
+            """
+        )
+
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_sessions_last_active ON sessions(last_active DESC)"
         )
@@ -77,6 +91,128 @@ def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_cache_branch_type ON context_cache(branch_name, data_type)"
         )
         conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# Repo management helpers
+# ---------------------------------------------------------------------------
+
+def add_repo(full_name: str) -> None:
+    """Add a repo and set it as the active repo.
+
+    Extracts the short name from the full_name (e.g. "harsh/my-app" → "my-app").
+    If the repo already exists it is simply set as active.
+
+    Args:
+        full_name: Repository in owner/name format.
+    """
+    full_name = full_name.strip()
+    short_name = full_name.split("/", 1)[1] if "/" in full_name else full_name
+
+    init_db()
+    with _get_connection() as conn:
+        # Deactivate every repo first so only one is active.
+        conn.execute("UPDATE repos SET is_active = 0")
+
+        conn.execute(
+            """
+            INSERT INTO repos (name, full_name, is_active, added_at)
+            VALUES (?, ?, 1, ?)
+            ON CONFLICT(full_name) DO UPDATE SET
+                is_active = 1
+            """,
+            (short_name, full_name, _utc_now_iso()),
+        )
+        conn.commit()
+
+
+def set_active_repo(full_name: str) -> bool:
+    """Set an already-saved repo as the active one.
+
+    Deactivates all other repos first. Returns True if the repo was found
+    and activated, False if it does not exist in the database.
+
+    Args:
+        full_name: Repository in owner/name format.
+    """
+    full_name = full_name.strip()
+    init_db()
+    with _get_connection() as conn:
+        row = conn.execute(
+            "SELECT id FROM repos WHERE full_name = ?", (full_name,)
+        ).fetchone()
+        if row is None:
+            return False
+
+        conn.execute("UPDATE repos SET is_active = 0")
+        conn.execute(
+            "UPDATE repos SET is_active = 1 WHERE full_name = ?", (full_name,)
+        )
+        conn.commit()
+    return True
+
+
+def get_active_repo() -> str | None:
+    """Return the full_name of the currently active repo, or None if unset."""
+    init_db()
+    with _get_connection() as conn:
+        row = conn.execute(
+            "SELECT full_name FROM repos WHERE is_active = 1 LIMIT 1"
+        ).fetchone()
+    return row["full_name"] if row else None
+
+
+def list_repos() -> list[dict[str, Any]]:
+    """Return all saved repos as a list of dicts, ordered by newest first."""
+    init_db()
+    with _get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, name, full_name, is_active, added_at
+            FROM repos
+            ORDER BY added_at DESC
+            """
+        ).fetchall()
+
+    return [
+        {
+            "id": r["id"],
+            "name": r["name"],
+            "full_name": r["full_name"],
+            "is_active": bool(r["is_active"]),
+            "added_at": r["added_at"],
+        }
+        for r in rows
+    ]
+
+
+def remove_repo(full_name: str) -> bool:
+    """Delete a repo from the saved list.
+
+    Returns True if a row was deleted, False if the repo was not found.
+
+    Args:
+        full_name: Repository in owner/name format.
+    """
+    full_name = full_name.strip()
+    init_db()
+    with _get_connection() as conn:
+        cursor = conn.execute(
+            "DELETE FROM repos WHERE full_name = ?", (full_name,)
+        )
+        conn.commit()
+    return cursor.rowcount > 0
+
+
+def repo_exists(full_name: str) -> bool:
+    """Return True if the repo is already saved in the database."""
+    full_name = full_name.strip()
+    init_db()
+    with _get_connection() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM repos WHERE full_name = ?", (full_name,)
+        ).fetchone()
+    return row is not None
 
 
 def save_session(branch: str, repo: str, files: list[str]) -> None:

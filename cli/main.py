@@ -27,7 +27,18 @@ from integrations.linear import (
     get_ticket_details,
 )
 from integrations.slack import display_slack_summary, get_recent_messages
-from storage.db import get_cache, get_last_session, save_cache, save_session
+from storage.db import (
+    add_repo,
+    get_active_repo,
+    get_cache,
+    get_last_session,
+    list_repos,
+    remove_repo,
+    repo_exists,
+    save_cache,
+    save_session,
+    set_active_repo,
+)
 
 
 APP_DIR = Path.home() / ".context-bridge"
@@ -36,13 +47,37 @@ APP_ENV_PATH = APP_DIR / ".env"
 console = Console()
 
 
+# ---------------------------------------------------------------------------
+# Validation helpers
+# ---------------------------------------------------------------------------
+
 def _is_valid_repo(repo: str) -> bool:
-    """Validate owner/reponame format."""
+    """Validate owner/reponame format (must contain exactly one '/')."""
     if "/" not in repo:
         return False
-    owner, name = repo.split("/", 1)
+    parts = repo.split("/")
+    if len(parts) != 2:
+        return False
+    owner, name = parts
     return bool(owner.strip() and name.strip())
 
+
+def _require_active_repo() -> str:
+    """Return the active repo from the database.
+
+    Raises click.ClickException with a helpful message when no repo is set.
+    """
+    repo = get_active_repo()
+    if repo:
+        return repo
+    raise click.ClickException(
+        "No active repo set. Run: cb repo add owner/repo"
+    )
+
+
+# ---------------------------------------------------------------------------
+# App config helpers (kept for backward compat — tokens reference only)
+# ---------------------------------------------------------------------------
 
 def _load_app_config() -> dict[str, Any]:
     """Load persisted CLI config from ~/.context-bridge/config.json."""
@@ -61,28 +96,9 @@ def _save_app_config(data: dict[str, Any]) -> None:
     APP_CONFIG_PATH.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
-def _get_repo_from_config_or_prompt() -> str:
-    """Return saved repo or prompt the user once and persist it."""
-    cfg = _load_app_config()
-    saved_repo = str(cfg.get("default_repo", "")).strip()
-    if saved_repo and _is_valid_repo(saved_repo):
-        return saved_repo
-
-    while True:
-        repo = click.prompt("GitHub repo (owner/reponame)", type=str).strip()
-        if _is_valid_repo(repo):
-            cfg["default_repo"] = repo
-            _save_app_config(cfg)
-            return repo
-        console.print("[yellow]Invalid repo format. Use owner/reponame.[/yellow]")
-
-
-def _get_saved_repo() -> str | None:
-    """Return saved default repo from app config, if valid."""
-    cfg = _load_app_config()
-    saved_repo = str(cfg.get("default_repo", "")).strip()
-    return saved_repo if _is_valid_repo(saved_repo) else None
-
+# ---------------------------------------------------------------------------
+# Git helpers
+# ---------------------------------------------------------------------------
 
 def _get_current_branch() -> str:
     """Read current git branch from the active repository."""
@@ -151,6 +167,10 @@ def _format_last_active(last_active_iso: str) -> str:
     return f"{hours} hours ago"
 
 
+# ---------------------------------------------------------------------------
+# .env file helper (used only in cb init for tokens)
+# ---------------------------------------------------------------------------
+
 def _upsert_env_file(path: Path, updates: dict[str, str]) -> None:
     """Update or append key-value pairs in .env without dropping other keys."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -182,6 +202,10 @@ def _upsert_env_file(path: Path, updates: dict[str, str]) -> None:
     path.write_text("\n".join(new_lines).rstrip() + "\n", encoding="utf-8")
 
 
+# ---------------------------------------------------------------------------
+# Core status logic (used by cb status and dashboard API)
+# ---------------------------------------------------------------------------
+
 def run_status_logic(interactive: bool = True, render: bool = True) -> dict[str, Any]:
     """Run the status workflow and optionally render terminal summaries.
 
@@ -192,15 +216,16 @@ def run_status_logic(interactive: bool = True, render: bool = True) -> dict[str,
     Returns:
         A JSON-safe dict describing fetched context.
     """
-    if interactive:
-        repo = _get_repo_from_config_or_prompt()
-    else:
-        repo = _get_saved_repo()
-        if not repo:
-            raise RuntimeError(
-                "No default repo found. Run 'cb status' once in terminal or set "
-                "~/.context-bridge/config.json with default_repo."
+    # Always read repo from SQLite — no more config.json or .env fallback.
+    repo = get_active_repo()
+    if not repo:
+        if interactive:
+            raise click.ClickException(
+                "No active repo set. Run: cb repo add owner/repo"
             )
+        raise RuntimeError(
+            "No active repo set. Run 'cb repo add owner/repo' to configure one."
+        )
 
     branch_name = _get_current_branch()
     files = _get_touched_files()
@@ -300,10 +325,18 @@ def run_status_logic(interactive: bool = True, render: bool = True) -> dict[str,
     }
 
 
+# ===================================================================
+# CLI definition
+# ===================================================================
+
 @click.group(help="Context Bridge developer productivity commands.")
 def cli() -> None:
     """Main CLI group for cb commands."""
 
+
+# ---------------------------------------------------------------------------
+# cb status
+# ---------------------------------------------------------------------------
 
 @cli.command(help="Fetch GitHub + Linear + Slack context for the current branch.")
 def status() -> None:
@@ -316,9 +349,21 @@ def status() -> None:
         raise click.ClickException(str(exc)) from exc
 
 
+# ---------------------------------------------------------------------------
+# cb resume
+# ---------------------------------------------------------------------------
+
 @cli.command(help="Resume context from your last session on this branch.")
 def resume() -> None:
     """Show last session details and suggest the next action."""
+    # Ensure an active repo is set before attempting anything.
+    repo = get_active_repo()
+    if not repo:
+        console.print(
+            "[red]No active repo set.[/red] Run: [bold]cb repo add owner/repo[/bold]"
+        )
+        return
+
     console.print("[green]Resuming your last session...[/green]")
 
     branch_name = _get_current_branch()
@@ -332,7 +377,6 @@ def resume() -> None:
     last_active = _format_last_active(str(session.get("last_active", "")))
     files = session.get("files_touched") or []
     files_text = ", ".join(files) if files else "No files recorded"
-    repo = str(session.get("repo", "")).strip()
 
     comments_count = 0
     ci_status = "unknown"
@@ -379,9 +423,17 @@ def resume() -> None:
     )
 
 
+# ---------------------------------------------------------------------------
+# cb init
+# ---------------------------------------------------------------------------
+
 @cli.command(help="Run first-time setup for tokens and default repo.")
 def init() -> None:
-    """Interactive setup wizard for token env and default repo config."""
+    """Interactive setup wizard for token env and default repo config.
+
+    Tokens are saved to ~/.context-bridge/.env.
+    Repo is stored in SQLite via db.py (not .env or config.json).
+    """
     console.print("[cyan]Starting context-bridge setup wizard...[/cyan]")
     console.print("[dim]Tokens are saved to ~/.context-bridge/.env[/dim]")
 
@@ -389,37 +441,40 @@ def init() -> None:
     linear_token = click.prompt("Linear token", hide_input=True).strip()
     slack_token = click.prompt("Slack token", hide_input=True).strip()
 
-    while True:
-        default_repo = click.prompt("Default GitHub repo (owner/reponame)", type=str).strip()
-        if _is_valid_repo(default_repo):
-            break
-        console.print("[yellow]Invalid repo format. Use owner/reponame.[/yellow]")
+    # Repo entry is optional — user can press Enter to skip.
+    default_repo = click.prompt(
+        "Default GitHub repo (owner/reponame)",
+        type=str,
+        default="",
+        show_default=False,
+    ).strip()
 
-    env_path = APP_ENV_PATH
-    updates = {
+    # Save tokens to .env (repo is NOT stored in .env anymore).
+    env_updates = {
         "GITHUB_TOKEN": github_token,
         "LINEAR_TOKEN": linear_token,
         "SLACK_TOKEN": slack_token,
-        "DEFAULT_REPO": default_repo,
     }
 
-    _upsert_env_file(
-        env_path,
-        updates,
-    )
+    _upsert_env_file(APP_ENV_PATH, env_updates)
 
+    # Also update project-level .env if one exists (tokens only).
     project_env_path = Path.cwd() / ".env"
-    if project_env_path.exists() and project_env_path != env_path:
-        _upsert_env_file(project_env_path, updates)
+    if project_env_path.exists() and project_env_path != APP_ENV_PATH:
+        _upsert_env_file(project_env_path, env_updates)
 
-    cfg = _load_app_config()
-    cfg["default_repo"] = default_repo
-    _save_app_config(cfg)
+    # Store repo in SQLite if the user provided one.
+    if default_repo and _is_valid_repo(default_repo):
+        add_repo(default_repo)
+        repo_msg = f"Active repo set to [bold]{default_repo}[/bold]"
+    else:
+        repo_msg = "[dim]Tip: run [bold]cb repo add owner/repo[/bold] anytime to add a repo[/dim]"
 
     console.print(
         Panel(
-            "[green]Setup complete![/green]\\n"
-            f"Tokens saved to [bold]{env_path}[/bold]\\n"
+            f"[green]Setup complete![/green]\\n"
+            f"Tokens saved to [bold]{APP_ENV_PATH}[/bold]\\n"
+            f"{repo_msg}\\n"
             "Next steps:\\n"
             "1. Run [bold]cb status[/bold] to fetch context\\n"
             "2. Run [bold]cb resume[/bold] to continue work",
@@ -430,6 +485,10 @@ def init() -> None:
     )
 
 
+# ---------------------------------------------------------------------------
+# cb doctor
+# ---------------------------------------------------------------------------
+
 @cli.command(help="Check cb installation and local configuration health.")
 def doctor() -> None:
     """Print diagnostic details for installation, token files, and config."""
@@ -437,6 +496,8 @@ def doctor() -> None:
     project_env = Path.cwd() / ".env"
 
     from config import GITHUB_TOKEN, LINEAR_TOKEN, SLACK_TOKEN
+
+    active_repo = get_active_repo() or "not set"
 
     table = Table.grid(padding=(0, 1))
     table.add_column(style="bold cyan", no_wrap=True)
@@ -448,7 +509,7 @@ def doctor() -> None:
         "project env",
         f"{project_env} ({'exists' if project_env.exists() else 'missing'})",
     )
-    table.add_row("default repo", _get_saved_repo() or "missing")
+    table.add_row("active repo", active_repo)
     table.add_row("GITHUB_TOKEN", "configured" if GITHUB_TOKEN else "missing")
     table.add_row("LINEAR_TOKEN", "configured" if LINEAR_TOKEN else "missing")
     table.add_row("SLACK_TOKEN", "configured" if SLACK_TOKEN else "missing")
@@ -463,6 +524,10 @@ def doctor() -> None:
     )
 
 
+# ---------------------------------------------------------------------------
+# cb web
+# ---------------------------------------------------------------------------
+
 @cli.command(help="Start local context-bridge web dashboard.")
 def web() -> None:
     """Start Flask dashboard on localhost and open it in a browser."""
@@ -472,6 +537,142 @@ def web() -> None:
     console.print(f"Dashboard running at {url}")
     webbrowser.open(url, new=2)
     run_dashboard()
+
+
+# ---------------------------------------------------------------------------
+# cb repo — command group for multi-repo management
+# ---------------------------------------------------------------------------
+
+@cli.group(help="Manage saved repos. Tokens stay the same — only repos change.")
+def repo() -> None:
+    """Parent group for repo subcommands (add, use, list, remove, current)."""
+
+
+@repo.command("add", help="Add a new repo and set it as active.")
+@click.argument("full_name")
+def repo_add(full_name: str) -> None:
+    """Add a repo to the saved list and activate it.
+
+    FULL_NAME must be in owner/repo format (e.g. harsh/my-app).
+    """
+    full_name = full_name.strip()
+
+    # Validate format — must contain exactly one '/'.
+    if not _is_valid_repo(full_name):
+        console.print(
+            "[red]Invalid repo format.[/red] Use [bold]owner/reponame[/bold] "
+            "(e.g. harsh/my-app)"
+        )
+        raise SystemExit(1)
+
+    # Check if already saved.
+    if repo_exists(full_name):
+        set_active_repo(full_name)
+        console.print(
+            f"[green]✓[/green] '{full_name}' already saved — set as active repo"
+        )
+        return
+
+    add_repo(full_name)
+    console.print(
+        f"[green]✓[/green] Added and set [bold]'{full_name}'[/bold] as active repo"
+    )
+
+
+@repo.command("use", help="Switch the active repo to an already-saved one.")
+@click.argument("full_name")
+def repo_use(full_name: str) -> None:
+    """Switch active repo. The repo must already be added.
+
+    FULL_NAME must be in owner/repo format (e.g. harsh/my-app).
+    """
+    full_name = full_name.strip()
+
+    if not repo_exists(full_name):
+        console.print(
+            f"[red]Repo '{full_name}' not found.[/red] "
+            f"Add it first: [bold]cb repo add {full_name}[/bold]"
+        )
+        raise SystemExit(1)
+
+    set_active_repo(full_name)
+    console.print(f"[green]✓[/green] Switched to [bold]'{full_name}'[/bold]")
+
+
+@repo.command("list", help="Show all saved repos.")
+def repo_list() -> None:
+    """Display a Rich table of all saved repos with active status."""
+    repos = list_repos()
+
+    if not repos:
+        console.print(
+            "[yellow]No repos saved yet.[/yellow] "
+            "Run: [bold]cb repo add owner/repo[/bold]"
+        )
+        return
+
+    table = Table(title="Saved Repos", border_style="bright_blue", expand=False)
+    table.add_column("Name", style="bold")
+    table.add_column("Full Name")
+    table.add_column("Status", justify="center")
+
+    for r in repos:
+        if r["is_active"]:
+            # Highlight the active repo in green.
+            table.add_row(
+                f"[green]{r['name']}[/green]",
+                f"[green]{r['full_name']}[/green]",
+                "[green]Active ✓[/green]",
+            )
+        else:
+            table.add_row(r["name"], r["full_name"], "-")
+
+    console.print(table)
+    console.print(f"[dim]Total repos: {len(repos)}[/dim]")
+
+
+@repo.command("remove", help="Remove a saved repo.")
+@click.argument("full_name")
+def repo_remove(full_name: str) -> None:
+    """Remove a repo from the saved list after user confirmation.
+
+    FULL_NAME must be in owner/repo format (e.g. harsh/my-app).
+    """
+    full_name = full_name.strip()
+
+    if not repo_exists(full_name):
+        console.print(f"[red]Repo '{full_name}' not found.[/red]")
+        raise SystemExit(1)
+
+    # Check if this is the currently active repo so we can warn the user.
+    was_active = get_active_repo() == full_name
+
+    # Ask for confirmation before destructive action.
+    if not click.confirm(f"Remove {full_name}?", default=False):
+        console.print("[dim]Cancelled.[/dim]")
+        return
+
+    remove_repo(full_name)
+    console.print(f"[green]✓[/green] Removed '{full_name}'")
+
+    if was_active:
+        console.print(
+            "[yellow]⚠ That was your active repo.[/yellow] "
+            "Run [bold]cb repo use owner/repo[/bold] to set a new one."
+        )
+
+
+@repo.command("current", help="Show the currently active repo.")
+def repo_current() -> None:
+    """Print the currently active repo name, or a hint if none is set."""
+    active = get_active_repo()
+    if active:
+        console.print(f"Active repo: [bold green]{active}[/bold green]")
+    else:
+        console.print(
+            "[yellow]No active repo set.[/yellow] "
+            "Run: [bold]cb repo add owner/repo[/bold]"
+        )
 
 
 if __name__ == "__main__":
