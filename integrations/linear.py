@@ -35,7 +35,7 @@ else:
 
 LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql"
 REQUEST_TIMEOUT_SECONDS = 20
-TICKET_PATTERN = re.compile(r"\b([A-Z][A-Z0-9]+-\d+)\b")
+TICKET_PATTERN = re.compile(r"(?:^|[/_-])([A-Za-z][A-Za-z0-9]+-\d+)(?=-|$)", re.IGNORECASE)
 console = Console()
 
 
@@ -137,15 +137,23 @@ def _status_color(status_name: str, status_type: str) -> str:
 
 
 def extract_ticket_id(branch_name: str) -> str | None:
-    """Extract a ticket identifier like AUTH-412 from a branch name.
+    """Extract a ticket identifier from a branch name (case-insensitive).
 
-    Examples matched: AUTH-412, FEAT-23, BUG-101
+    The matched ID is always uppercased so the Linear API receives the
+    canonical form (e.g. ``CON-5``, not ``con-5``).
+
+    Examples::
+
+        con-5-login-timeout-after-30s   → CON-5
+        fix/AUTH-1-login-timeout         → AUTH-1
+        feature/FEAT-23-dark-mode        → FEAT-23
+        pharshpathak703/con-5-something  → CON-5
     """
     if not branch_name:
         return None
 
     match = TICKET_PATTERN.search(branch_name)
-    return match.group(1) if match else None
+    return match.group(1).upper() if match else None
 
 
 def get_ticket_details(ticket_id: str) -> dict[str, Any]:
