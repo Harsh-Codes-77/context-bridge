@@ -250,7 +250,7 @@ cb repo remove harsh/other-project
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps)
 2. Create a new app → **"From scratch"**
-3. Add OAuth scopes: `channels:read`, `channels:history`, `groups:read`, `groups:history`
+3. Add OAuth scopes: `channels:read`, `channels:history`, `groups:read`, `groups:history`, `users:read`
 4. Optional (for better search results): `search:read`
 5. Install app to workspace
 6. Copy **Bot User OAuth Token** (or a user token with search permissions) → paste in `cb init`

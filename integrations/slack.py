@@ -28,6 +28,9 @@ SLACK_API_BASE = "https://slack.com/api"
 REQUEST_TIMEOUT_SECONDS = 20
 console = Console()
 
+# In-memory cache so we don't call users.info for the same ID twice per session.
+_user_name_cache: dict[str, str] = {}
+
 
 def _require_token() -> str:
     """Return a usable Slack token or raise a helpful error."""
@@ -98,6 +101,48 @@ def _slack_get(path: str, params: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def get_user_name(user_id: str, slack_token: str | None = None) -> str:
+    """Resolve a Slack user ID to a human-readable display name.
+
+    Calls Slack ``users.info`` to fetch the user's profile and returns
+    ``display_name`` (preferred) or ``real_name``.  If the API call fails
+    for any reason the original *user_id* is returned unchanged so the
+    caller always gets a usable string.
+
+    Results are cached in-memory for the lifetime of the process to avoid
+    repeated API round-trips for the same user.
+    """
+    if not user_id:
+        return "Unknown"
+
+    # Fast path: already resolved.
+    if user_id in _user_name_cache:
+        return _user_name_cache[user_id]
+
+    try:
+        payload = _slack_get("/users.info", {"user": user_id})
+        user_obj = payload.get("user") or {}
+        profile = user_obj.get("profile") or {}
+
+        name = (
+            profile.get("display_name")
+            or profile.get("real_name")
+            or user_obj.get("real_name")
+            or user_obj.get("name")
+            or user_id
+        )
+        # Normalize empty strings.
+        name = name.strip() if name else user_id
+        if not name:
+            name = user_id
+    except Exception:
+        # Any failure (network, auth, rate-limit) → fall back to raw ID.
+        name = user_id
+
+    _user_name_cache[user_id] = name
+    return name
+
+
 def _build_query(branch_name: str, ticket_id: str | None) -> str:
     """Build a Slack search query from branch and ticket context."""
     terms: list[str] = []
@@ -121,11 +166,24 @@ def _build_terms(branch_name: str, ticket_id: str | None) -> list[str]:
 
 def _normalize_message(item: dict[str, Any], channel_name: str) -> dict[str, str]:
     """Normalize Slack payload entries into a common message shape."""
-    username = item.get("username") or item.get("user") or "Unknown"
+    username = item.get("username") or ""
+    user_id = item.get("user") or ""
+
+    # Prefer the human-readable username when the API already provides one.
+    # If we only have a raw user ID (e.g. "U0AU95U857F"), resolve it via
+    # the users.info endpoint so the display shows an actual name.
+    if username:
+        author = username
+    elif user_id:
+        # user_id strings look like "U…" — try to resolve them.
+        author = get_user_name(user_id)
+    else:
+        author = "Unknown"
+
     raw_text = (item.get("text") or "").replace("\n", " ").strip()
     text = raw_text[:180] + ("..." if len(raw_text) > 180 else "")
     return {
-        "author": str(username),
+        "author": str(author),
         "channel": channel_name or "unknown-channel",
         "text": text,
         "permalink": item.get("permalink") or "",
