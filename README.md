@@ -87,7 +87,7 @@ cb web
 cb doctor
 ```
 
-`cb init` saves tokens to `~/.context-bridge/.env` and optionally sets a default repo.
+`cb init` saves tokens to `~/.context-bridge/.env`. **Note:** Only the GitHub token is required! Linear and Slack tokens are completely optional and can be freely skipped.
 You can manage repos anytime with `cb repo` — no need to re-enter tokens.
 
 ---
@@ -152,7 +152,7 @@ Interactive setup wizard. Run once to configure your API tokens.
 cb init
 ```
 
-Tokens are saved to `~/.context-bridge/.env`. You can optionally set a default repo during init,
+Tokens are saved to `~/.context-bridge/.env`. **Linear and Slack tokens are completely optional**—if you only use GitHub, simply press Enter to skip them. You can optionally set a default repo during init,
 or skip it and add repos later with `cb repo add`.
 
 ---
@@ -225,6 +225,8 @@ cb repo remove harsh/other-project
 | **Slack** | Messages mentioning your ticket ID or branch name |
 
 ### Setting Up Tokens
+
+*(Note: Only the GitHub token is required! Linear and Slack tokens are completely optional, and their summaries will dynamically hide from the dashboard and CLI if not provided.)*
 
 <details>
 <summary>📍 GitHub Token</summary>
