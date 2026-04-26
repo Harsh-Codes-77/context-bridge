@@ -1,0 +1,24 @@
+# Secrets and local config
+.env
+.env.*
+!.env.example
+
+# Python cache/bytecode
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+
+# Local runtime data
+.context-bridge/
+
+# Packaging/build artifacts
+*.egg-info/
+build/
+dist/
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
