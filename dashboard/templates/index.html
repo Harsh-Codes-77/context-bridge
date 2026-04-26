@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>context-bridge dashboard</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              display: ["Space Grotesk", "sans-serif"],
+              mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
+            },
+            boxShadow: {
+              glow: "0 0 0 1px rgba(56,189,248,0.35), 0 20px 45px rgba(15,23,42,0.55)",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      body {
+        background:
+          radial-gradient(1200px 500px at 0% -10%, rgba(6, 182, 212, 0.2), transparent 60%),
+          radial-gradient(900px 420px at 100% 0%, rgba(56, 189, 248, 0.16), transparent 58%),
+          linear-gradient(180deg, #030712 0%, #0b1222 50%, #030712 100%);
+      }
+
+      .grid-noise {
+        background-image:
+          linear-gradient(rgba(148, 163, 184, 0.07) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
+        background-size: 26px 26px;
+      }
+
+      .fade-in {
+        animation: rise 500ms ease-out both;
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+
+  <body class="min-h-screen text-slate-100 font-display">
+    <div class="grid-noise min-h-screen">
+      <main class="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <section class="mb-8 flex flex-col gap-4 rounded-2xl border border-cyan-400/30 bg-slate-950/75 p-5 shadow-glow backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">context-bridge dashboard</h1>
+            <p class="mt-1 text-sm text-slate-300">Developer context timeline across branches</p>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <div class="rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-200">
+              <span class="text-slate-400">Current time:</span>
+              <span id="current-time" class="ml-2 font-mono"></span>
+            </div>
+            <button
+              id="refresh-btn"
+              class="inline-flex items-center gap-2 rounded-lg border border-cyan-400/60 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0"
+            >
+              <span id="refresh-dot" class="h-2 w-2 rounded-full bg-cyan-300"></span>
+              Refresh
+            </button>
+          </div>
+        </section>
+
+        <section class="mb-5 flex items-center justify-between">
+          <p id="session-count" class="text-sm text-slate-300"></p>
+          <p id="status-msg" class="text-xs text-slate-400"></p>
+        </section>
+
+        <section id="sessions-grid" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"></section>
+
+        <template id="session-card-template">
+          <article class="fade-in rounded-xl border border-slate-700/80 bg-slate-900/80 p-4 shadow-md transition hover:border-cyan-400/40 hover:shadow-glow">
+            <div class="mb-3 flex items-start justify-between gap-4">
+              <h2 class="session-branch font-mono text-sm font-semibold text-cyan-200"></h2>
+              <span class="session-last-active rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-300"></span>
+            </div>
+
+            <p class="session-repo mb-4 text-sm text-slate-300"></p>
+
+            <p class="session-context-age mb-4 text-xs text-slate-400"></p>
+
+            <div class="mb-4">
+              <p class="mb-2 text-xs uppercase tracking-wider text-slate-400">Files touched</p>
+              <div class="session-files flex flex-wrap gap-2"></div>
+            </div>
+
+            <div class="mb-4 rounded-lg border border-slate-700 bg-slate-950/70 p-3">
+              <p class="mb-2 text-xs uppercase tracking-wider text-cyan-300">GitHub</p>
+              <p class="session-pr text-sm text-slate-200"></p>
+              <p class="session-comments mt-1 text-xs text-slate-300"></p>
+              <p class="session-ci mt-1 text-xs text-slate-300"></p>
+            </div>
+
+            <div class="mb-4 rounded-lg border border-slate-700 bg-slate-950/70 p-3">
+              <p class="mb-2 text-xs uppercase tracking-wider text-emerald-300">Linear</p>
+              <p class="session-ticket text-sm text-slate-200"></p>
+              <p class="session-linear-meta mt-1 text-xs text-slate-300"></p>
+            </div>
+
+            <div class="rounded-lg border border-slate-700 bg-slate-950/70 p-3">
+              <p class="mb-2 text-xs uppercase tracking-wider text-violet-300">Slack</p>
+              <div class="session-slack flex flex-col gap-1"></div>
+            </div>
+          </article>
+        </template>
+      </main>
+    </div>
+
+    <script>
+      const sessionsGrid = document.getElementById("sessions-grid");
+      const sessionCount = document.getElementById("session-count");
+      const statusMsg = document.getElementById("status-msg");
+      const timeNode = document.getElementById("current-time");
+      const refreshBtn = document.getElementById("refresh-btn");
+      const refreshDot = document.getElementById("refresh-dot");
+      const template = document.getElementById("session-card-template");
+
+      const SESSIONS_POLL_MS = 30000;
+      const CONTEXT_POLL_MS = 120000;
+      const REFRESH_THROTTLE_MS = 10000;
+      let lastManualRefreshMs = 0;
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function formatRelativeTime(isoValue) {
+        if (!isoValue) return "Unknown";
+        const then = new Date(isoValue);
+        if (Number.isNaN(then.getTime())) return "Unknown";
+
+        const now = new Date();
+        const diffMs = Math.max(0, now - then);
+        const diffMin = Math.floor(diffMs / 60000);
+        const diffHr = Math.floor(diffMin / 60);
+        const diffDay = Math.floor(diffHr / 24);
+
+        if (diffMin < 1) return "Just now";
+        if (diffMin < 60) return `${diffMin} min ago`;
+        if (diffHr < 24) return `${diffHr} hour${diffHr > 1 ? "s" : ""} ago`;
+        return `${diffDay} day${diffDay > 1 ? "s" : ""} ago`;
+      }
+
+      function setCurrentTime() {
+        const now = new Date();
+        timeNode.textContent = now.toLocaleString();
+      }
+
+      function setContextAge(card, session) {
+        const node = card.querySelector(".session-context-age");
+        const meta = session.context_meta || {};
+        const labels = [];
+
+        for (const key of ["github", "linear", "slack"]) {
+          const value = meta[key];
+          if (value && typeof value.age_minutes === "number") {
+            const age = Math.round(value.age_minutes);
+            labels.push(`${key}: ${age}m`);
+          }
+        }
+
+        if (labels.length === 0) {
+          node.textContent = "No cached integration context yet";
+        } else {
+          node.textContent = `Cache age -> ${labels.join(" | ")}`;
+        }
+      }
+
+      function renderGithub(card, session) {
+        const github = session.github || {};
+        const pr = github.pr || {};
+        const ci = github.ci || {};
+
+        const prNode = card.querySelector(".session-pr");
+        const commentsNode = card.querySelector(".session-comments");
+        const ciNode = card.querySelector(".session-ci");
+
+        if (pr.number) {
+          prNode.textContent = `PR #${pr.number}: ${pr.title || "Untitled PR"}`;
+        } else if (pr.title) {
+          prNode.textContent = pr.title;
+        } else {
+          prNode.textContent = "No open PR for this branch";
+        }
+
+        const comments = Array.isArray(pr.comments) ? pr.comments.length : 0;
+        commentsNode.textContent = `Unresolved comments: ${comments}`;
+
+        const status = ci.status || "unknown";
+        const conclusion = ci.conclusion || "unknown";
+        if (status === "failure" && ci.failed_job) {
+          ciNode.textContent = `CI: failure (${ci.failed_job})`;
+        } else {
+          ciNode.textContent = `CI: ${status} (${conclusion})`;
+        }
+      }
+
+      function renderLinear(card, session) {
+        const linear = session.linear || {};
+        const ticketNode = card.querySelector(".session-ticket");
+        const metaNode = card.querySelector(".session-linear-meta");
+
+        if (linear.ticket_id) {
+          ticketNode.textContent = `${linear.ticket_id}: ${linear.title || "Untitled"}`;
+          metaNode.textContent = `${linear.status || "Unknown"} | ${linear.assignee || "Unassigned"} | ${linear.priority || "Unknown"}`;
+        } else {
+          ticketNode.textContent = linear.title || "No ticket ID in branch name";
+          metaNode.textContent = "Linear context unavailable for this branch";
+        }
+      }
+
+      function renderSlack(card, session) {
+        const slack = session.slack || {};
+        const wrap = card.querySelector(".session-slack");
+        wrap.innerHTML = "";
+
+        const messages = Array.isArray(slack.messages) ? slack.messages : [];
+        if (messages.length === 0) {
+          const empty = document.createElement("p");
+          empty.className = "text-xs text-slate-400";
+          empty.textContent = "No recent matching Slack messages";
+          wrap.appendChild(empty);
+          return;
+        }
+
+        for (const msg of messages.slice(0, 2)) {
+          const line = document.createElement("p");
+          line.className = "text-xs text-slate-300";
+          const author = msg.author || "Unknown";
+          const channel = msg.channel || "unknown";
+          const text = msg.text || "";
+          line.textContent = `${author} in #${channel}: ${text}`;
+          wrap.appendChild(line);
+        }
+      }
+
+      function renderSessions(sessions) {
+        sessionsGrid.innerHTML = "";
+
+        if (!Array.isArray(sessions) || sessions.length === 0) {
+          sessionsGrid.innerHTML = `
+            <div class="col-span-full rounded-xl border border-slate-700 bg-slate-900/70 p-8 text-center text-slate-300">
+              No sessions yet. Run cb status from your repository to populate context.
+            </div>
+          `;
+          sessionCount.textContent = "0 sessions";
+          return;
+        }
+
+        sessionCount.textContent = `${sessions.length} session${sessions.length > 1 ? "s" : ""}`;
+
+        for (const session of sessions) {
+          const card = template.content.firstElementChild.cloneNode(true);
+
+          card.querySelector(".session-branch").textContent = session.branch_name || "unknown-branch";
+          card.querySelector(".session-repo").textContent = session.repo || "unknown/repo";
+          card.querySelector(".session-last-active").textContent = formatRelativeTime(session.last_active);
+
+          const filesWrap = card.querySelector(".session-files");
+          const files = Array.isArray(session.files_touched) ? session.files_touched : [];
+
+          if (files.length === 0) {
+            filesWrap.innerHTML = '<span class="rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-400">No files</span>';
+          } else {
+            for (const file of files) {
+              const tag = document.createElement("span");
+              tag.className = "rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs font-mono text-slate-200";
+              tag.textContent = file;
+              filesWrap.appendChild(tag);
+            }
+          }
+
+          setContextAge(card, session);
+          renderGithub(card, session);
+          renderLinear(card, session);
+          renderSlack(card, session);
+
+          sessionsGrid.appendChild(card);
+        }
+      }
+
+      async function loadSessions() {
+        try {
+          const response = await fetch("/api/sessions", { cache: "no-store" });
+          const data = await response.json();
+          if (!data.ok) {
+            statusMsg.textContent = "Could not load sessions";
+            return;
+          }
+          renderSessions(data.sessions || []);
+          statusMsg.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+        } catch (_err) {
+          statusMsg.textContent = "Network issue while loading sessions";
+        }
+      }
+
+      async function refreshStatus(options = {}) {
+        const isAuto = Boolean(options.isAuto);
+
+        if (!isAuto) {
+          const now = Date.now();
+          if (now - lastManualRefreshMs < REFRESH_THROTTLE_MS) {
+            statusMsg.textContent = "Please wait a few seconds before refreshing again";
+            return;
+          }
+          lastManualRefreshMs = now;
+        }
+
+        refreshBtn.disabled = true;
+        refreshDot.classList.add("animate-pulse");
+        statusMsg.textContent = isAuto ? "Auto-refreshing live context..." : "Refreshing context...";
+
+        try {
+          const response = await fetch("/api/status", { cache: "no-store" });
+          if (response.status === 429) {
+            statusMsg.textContent = "Rate limited by upstream API. Retrying on next cycle.";
+            return;
+          }
+
+          const payload = await response.json();
+          if (payload.ok) {
+            const warnings = [payload.github_error, payload.linear_error, payload.slack_error].filter(Boolean);
+            if (warnings.length > 0) {
+              statusMsg.textContent = `Context refreshed with ${warnings.length} warning(s) at ${new Date().toLocaleTimeString()}`;
+            } else {
+              statusMsg.textContent = `Context refreshed at ${new Date().toLocaleTimeString()}`;
+            }
+          } else {
+            statusMsg.textContent = `Refresh failed: ${escapeHtml(payload.error || "unknown error")}`;
+          }
+        } catch (_err) {
+          statusMsg.textContent = "Refresh request failed";
+        } finally {
+          refreshBtn.disabled = false;
+          refreshDot.classList.remove("animate-pulse");
+          await loadSessions();
+        }
+      }
+
+      refreshBtn.addEventListener("click", refreshStatus);
+
+      setCurrentTime();
+      loadSessions();
+      refreshStatus({ isAuto: true });
+
+      setInterval(setCurrentTime, 1000);
+      setInterval(loadSessions, SESSIONS_POLL_MS);
+      setInterval(() => refreshStatus({ isAuto: true }), CONTEXT_POLL_MS);
+    </script>
+  </body>
+</html>
