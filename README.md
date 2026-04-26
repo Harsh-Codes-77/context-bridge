@@ -215,6 +215,29 @@ cb repo remove harsh/other-project
 
 ---
 
+### `cb notes`
+Leave yourself reminders or context tied directly to your active branch session so you never forget where you left off.
+
+#### `cb notes add <text>`
+Add a timestamped note to the current branch.
+```bash
+cb notes add "Need to review auth timeout tests before pushing"
+# ✓ Note saved to fix/auth-timeout
+```
+
+#### `cb notes show`
+Display all notes associated with your current branch.
+```bash
+cb notes show
+```
+
+#### `cb notes clear`
+Clear all notes attached to your current branch.
+
+*📝 Fun fact: Notes automatically appear at the bottom of your `cb status` output when they exist for your branch!*
+
+---
+
 ## 🔌 Integrations
 
 | Tool | What it fetches |
