@@ -336,6 +336,14 @@ def run_status_logic(interactive: bool = True, render: bool = True) -> dict[str,
         if not SLACK_TOKEN:
             console.print("[dim]Slack skipped (no token) · Run cb init to add[/dim]")
 
+        from storage.db import get_notes
+        branch_notes = get_notes(branch_name)
+        if branch_notes:
+            preview = branch_notes.replace('\n', ' ')
+            if len(preview) > 100:
+                preview = preview[:97] + "..."
+            console.print(f"📝 Your notes: [dim]{preview}[/dim]")
+
     return {
         "repo": repo,
         "branch_name": branch_name,
@@ -773,6 +781,89 @@ def repo_current() -> None:
             "[yellow]No active repo set.[/yellow] "
             "Run: [bold]cb repo add owner/repo[/bold]"
         )
+
+
+# ---------------------------------------------------------------------------
+# Notes Management commands
+# ---------------------------------------------------------------------------
+
+@cli.group(
+    help="Manage notes attached to the current branch session.\n\n"
+         "Notes are specific to each branch, so you can leave yourself\n"
+         "reminders or context before switching contexts."
+)
+def notes() -> None:
+    """Parent group for note management on the active branch."""
+    pass
+
+
+@notes.command("add")
+@click.argument("text")
+def notes_add(text: str) -> None:
+    """Add a note to current branch session."""
+    from storage.db import save_note
+    try:
+        # Import conditionally (if inside function since we import dynamically everywhere else)
+        from integrations.github import get_current_branch
+    except ImportError:
+        pass
+        
+    branch = get_current_branch()
+    if not branch:
+        console.print("[red]Not in a git repository or no branch found.[/red]")
+        raise SystemExit(1)
+
+    try:
+        save_note(branch, text)
+        console.print(f"[green]✓ Note saved to {branch}[/green]")
+    except RuntimeError as exc:
+        console.print(f"[red]Error saving note: {exc}[/red]")
+        raise SystemExit(1)
+
+
+@notes.command("show")
+def notes_show() -> None:
+    """Show all notes for current branch."""
+    from storage.db import get_notes
+    from integrations.github import get_current_branch
+
+    branch = get_current_branch()
+    if not branch:
+        console.print("[red]Not in a git repository or no branch found.[/red]")
+        raise SystemExit(1)
+
+    branch_notes = get_notes(branch)
+    if not branch_notes:
+        console.print(f"[dim]No notes found for branch {branch}.[/dim]")
+        return
+
+    console.print(
+        Panel(
+            branch_notes,
+            title=f"Notes — {branch}",
+            border_style="yellow",
+            expand=False,
+        )
+    )
+
+
+@notes.command("clear")
+def notes_clear() -> None:
+    """Clear all notes for current branch."""
+    from storage.db import clear_notes
+    from integrations.github import get_current_branch
+
+    branch = get_current_branch()
+    if not branch:
+        console.print("[red]Not in a git repository or no branch found.[/red]")
+        raise SystemExit(1)
+
+    if not click.confirm(f"Clear all notes for this branch? [y/N]", default=False):
+        console.print("[dim]Cancelled.[/dim]")
+        return
+
+    clear_notes(branch)
+    console.print("[green]✓ Notes cleared[/green]")
 
 
 if __name__ == "__main__":

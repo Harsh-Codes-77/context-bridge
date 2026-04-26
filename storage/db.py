@@ -385,6 +385,66 @@ def get_cache_with_meta(
     }
 
 
+def save_note(branch: str, note_text: str) -> None:
+    """Save an appended note to the sessions table for the given branch."""
+    if not branch.strip():
+        raise ValueError("branch must not be empty")
+
+    init_db()
+    now_human = datetime.now().strftime("%Y-%m-%d %H:%M")
+    timestamped_note = f"[{now_human}] {note_text}"
+
+    with _get_connection() as conn:
+        row = conn.execute("SELECT notes FROM sessions WHERE branch_name = ?", (branch.strip(),)).fetchone()
+        
+        # If no session exists yet, we raise an error. Notes should be added to existing sessions.
+        if row is None:
+            raise RuntimeError(f"No session found for branch '{branch}'. Run 'cb status' first.")
+            
+        existing_notes = row["notes"]
+        if existing_notes:
+            new_notes = f"{existing_notes}\n{timestamped_note}"
+        else:
+            new_notes = timestamped_note
+
+        conn.execute(
+            "UPDATE sessions SET notes = ? WHERE branch_name = ?",
+            (new_notes, branch.strip())
+        )
+        conn.commit()
+
+
+def get_notes(branch: str) -> str:
+    """Return all notes for the branch as a single string, or empty string if none."""
+    if not branch.strip():
+        raise ValueError("branch must not be empty")
+
+    init_db()
+    with _get_connection() as conn:
+        row = conn.execute(
+            "SELECT notes FROM sessions WHERE branch_name = ?",
+            (branch.strip(),),
+        ).fetchone()
+
+    if row is None or not row["notes"]:
+        return ""
+    return row["notes"]
+
+
+def clear_notes(branch: str) -> None:
+    """Clear all notes for the given branch."""
+    if not branch.strip():
+        raise ValueError("branch must not be empty")
+
+    init_db()
+    with _get_connection() as conn:
+        conn.execute(
+            "UPDATE sessions SET notes = '' WHERE branch_name = ?",
+            (branch.strip(),)
+        )
+        conn.commit()
+
+
 def get_all_sessions() -> list[dict[str, Any]]:
     """Return all sessions ordered by most recent activity first."""
     init_db()
