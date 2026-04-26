@@ -1,0 +1,5 @@
+click
+requests
+rich
+flask
+python-dotenv
