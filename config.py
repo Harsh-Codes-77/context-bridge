@@ -33,32 +33,22 @@ def _read_env(name: str) -> str | None:
     return cleaned or None
 
 
-def _require_env(name: str) -> str:
-    """Return a required environment variable or raise a clear error."""
-    value = _read_env(name)
-    if value:
-        return value
-
-    raise RuntimeError(
-        f"Missing required token: {name}. "
-        "Run 'cb init' to configure tokens or add it to ~/.context-bridge/.env "
-        f"(example: {name}=your_token_here)."
-    )
-
-
 def get_github_token() -> str:
     """Return GitHub token or raise a setup error."""
-    return _require_env("GITHUB_TOKEN")
+    value = _read_env("GITHUB_TOKEN")
+    if value:
+        return value
+    raise RuntimeError("GitHub token required. Run cb init")
 
 
-def get_linear_token() -> str:
-    """Return Linear token or raise a setup error."""
-    return _require_env("LINEAR_TOKEN")
+def get_linear_token() -> str | None:
+    """Return Linear token or None if missing."""
+    return _read_env("LINEAR_TOKEN")
 
 
-def get_slack_token() -> str:
-    """Return Slack token or raise a setup error."""
-    return _require_env("SLACK_TOKEN")
+def get_slack_token() -> str | None:
+    """Return Slack token or None if missing."""
+    return _read_env("SLACK_TOKEN")
 
 
 _load_env_sources()

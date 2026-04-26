@@ -239,6 +239,13 @@ def run_status_logic(interactive: bool = True, render: bool = True) -> dict[str,
 
     ticket_id = extract_ticket_id(branch_name)
 
+    from config import GITHUB_TOKEN, LINEAR_TOKEN, SLACK_TOKEN
+
+    if not GITHUB_TOKEN:
+        if interactive:
+            raise click.ClickException("GitHub token required. Run cb init")
+        raise RuntimeError("GitHub token required. Run cb init")
+
     # Gather GitHub details for API output.
     try:
         pr_data = get_pr_for_branch(branch_name, repo)
@@ -255,7 +262,16 @@ def run_status_logic(interactive: bool = True, render: bool = True) -> dict[str,
             github_error = f"{github_error} (showing cached GitHub context)"
 
     # Gather Linear details for API output.
-    if ticket_id:
+    if not LINEAR_TOKEN:
+        linear_summary = {
+            "ticket_id": None,
+            "title": "Linear skipped (no token)",
+            "status": "N/A",
+            "assignee": "N/A",
+            "priority": "N/A",
+            "comments": [],
+        }
+    elif ticket_id:
         try:
             linear_summary = get_ticket_details(ticket_id)
         except Exception as exc:
@@ -275,16 +291,19 @@ def run_status_logic(interactive: bool = True, render: bool = True) -> dict[str,
         }
 
     # Gather Slack details for API output.
-    try:
-        slack_summary = get_recent_messages(branch_name, ticket_id, max_messages=5)
-    except Exception as exc:
-        slack_error = str(exc)
-        cached_slack = get_cache(branch_name, "slack", max_age_minutes=240)
-        if isinstance(cached_slack, dict) and cached_slack:
-            slack_summary = cached_slack
-            slack_error = f"{slack_error} (showing cached Slack context)"
-        else:
-            slack_summary = {"query": "", "messages": []}
+    if not SLACK_TOKEN:
+        slack_summary = {"query": "", "messages": [], "status": "skipped"}
+    else:
+        try:
+            slack_summary = get_recent_messages(branch_name, ticket_id, max_messages=5)
+        except Exception as exc:
+            slack_error = str(exc)
+            cached_slack = get_cache(branch_name, "slack", max_age_minutes=240)
+            if isinstance(cached_slack, dict) and cached_slack:
+                slack_summary = cached_slack
+                slack_error = f"{slack_error} (showing cached Slack context)"
+            else:
+                slack_summary = {"query": "", "messages": []}
 
     save_session(branch_name, repo, files)
 
@@ -300,8 +319,10 @@ def run_status_logic(interactive: bool = True, render: bool = True) -> dict[str,
 
     if render:
         display_github_summary(repo)
-        display_linear_summary(branch_name)
-        display_slack_summary(branch_name, ticket_id)
+        if LINEAR_TOKEN:
+            display_linear_summary(branch_name)
+        if SLACK_TOKEN:
+            display_slack_summary(branch_name, ticket_id)
         console.print(
             Panel(
                 f"Context fetched at [bold]{fetched_at_human}[/bold]",
@@ -310,6 +331,10 @@ def run_status_logic(interactive: bool = True, render: bool = True) -> dict[str,
                 expand=False,
             )
         )
+        if not LINEAR_TOKEN:
+            console.print("[dim]Linear skipped (no token) · Run cb init to add[/dim]")
+        if not SLACK_TOKEN:
+            console.print("[dim]Slack skipped (no token) · Run cb init to add[/dim]")
 
     return {
         "repo": repo,
@@ -452,12 +477,26 @@ def init() -> None:
     Tokens are saved to ~/.context-bridge/.env.
     Repo is stored in SQLite via db.py (not .env or config.json).
     """
+    from config import GITHUB_TOKEN, LINEAR_TOKEN, SLACK_TOKEN
+
     console.print("[cyan]Starting context-bridge setup wizard...[/cyan]")
     console.print("[dim]Tokens are saved to ~/.context-bridge/.env[/dim]")
 
-    github_token = click.prompt("GitHub token", hide_input=True).strip()
-    linear_token = click.prompt("Linear token", hide_input=True).strip()
-    slack_token = click.prompt("Slack token", hide_input=True).strip()
+    def prompt_token(name: str, existing: str | None, optional: bool = False) -> str | None:
+        if existing:
+            val = click.prompt(f"{name} already set. Press Enter to keep, or type new token", default="", show_default=False).strip()
+            return existing if not val else val
+
+        req_str = "(press Enter to skip)" if optional else "(required)"
+        val = click.prompt(f"{name} {req_str}", hide_input=True, default="", show_default=False).strip()
+        return None if not val else val
+
+    github_token = prompt_token("GitHub Token", GITHUB_TOKEN, optional=False)
+    while not github_token:
+        github_token = click.prompt("GitHub Token (required)", hide_input=True, default="", show_default=False).strip()
+
+    linear_token = prompt_token("Linear Token", LINEAR_TOKEN, optional=True)
+    slack_token = prompt_token("Slack Token", SLACK_TOKEN, optional=True)
 
     # Repo entry is optional — user can press Enter to skip.
     default_repo = click.prompt(
@@ -468,11 +507,13 @@ def init() -> None:
     ).strip()
 
     # Save tokens to .env (repo is NOT stored in .env anymore).
-    env_updates = {
-        "GITHUB_TOKEN": github_token,
-        "LINEAR_TOKEN": linear_token,
-        "SLACK_TOKEN": slack_token,
-    }
+    env_updates = {}
+    if github_token:
+        env_updates["GITHUB_TOKEN"] = github_token
+    if linear_token:
+        env_updates["LINEAR_TOKEN"] = linear_token
+    if slack_token:
+        env_updates["SLACK_TOKEN"] = slack_token
 
     _upsert_env_file(APP_ENV_PATH, env_updates)
 
