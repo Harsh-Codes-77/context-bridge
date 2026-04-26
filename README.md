@@ -238,6 +238,17 @@ Clear all notes attached to your current branch.
 
 ---
 
+### `cb doctor`
+Check the health of your installation, local configuration, file paths, and environment settings.
+
+```bash
+cb doctor
+```
+
+Useful if you are migrating environments, debugging tokens, or just making sure your local setup is perfectly healthy!
+
+---
+
 ## 🔌 Integrations
 
 | Tool | What it fetches |
