@@ -135,6 +135,16 @@ cb resume
 
 ---
 
+### `cb export`
+Exports all your branch context (PR info, CI status, Linear ticket, Slack messages, and notes) into a clean Markdown file. Perfect for pasting into pull requests, standup updates, or Jira.
+
+```bash
+cb export
+# ✓ Exported to context-bridge-export-fix-auth-timeout-2026-04-24.md
+```
+
+---
+
 ### `cb web`
 Opens a local web dashboard with your full project context, beautiful UI, and live refresh.
 
