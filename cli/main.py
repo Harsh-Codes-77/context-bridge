@@ -470,6 +470,147 @@ def resume() -> None:
 
 
 # ---------------------------------------------------------------------------
+# cb export
+# ---------------------------------------------------------------------------
+
+@cli.command(
+    help="Export all context for the current branch to a markdown file.\n\n"
+    "Gathers PR info, CI status, Linear ticket details, and recent\n"
+    "Slack messages, and saves them into a clean document you can share."
+)
+def export() -> None:
+    """Generate a clean markdown document with all branch context."""
+    # 1. Gather all context for current branch (same as cb status) by calling all integrations
+    console.print("[cyan]Gathering context for export...[/cyan]")
+    try:
+        context = run_status_logic(interactive=True, render=False)
+    except Exception as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    branch = context.get("branch_name", "unknown-branch")
+
+    # 2. Generate a clean markdown document with the specified structure
+    now = datetime.now()
+    date_str = now.strftime("%Y-%m-%d")
+    datetime_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
+    md_lines = []
+    md_lines.append("---")
+    md_lines.append(f"# Context Export — {branch}")
+    md_lines.append(f"Generated: {datetime_str}")
+    md_lines.append("")
+
+    # Branch section
+    md_lines.append("## Branch")
+    md_lines.append(branch)
+    md_lines.append("")
+
+    # Linear Ticket section
+    md_lines.append("## Linear Ticket")
+    linear = context.get("linear", {})
+    ticket_id = linear.get("ticket_id")
+    if ticket_id:
+        md_lines.append(f"- ID: {ticket_id}")
+        md_lines.append(f"- Title: {linear.get('title', 'N/A')}")
+        md_lines.append(f"- Status: {linear.get('status', 'N/A')}")
+        md_lines.append(f"- Assignee: {linear.get('assignee', 'N/A')}")
+        md_lines.append(f"- Priority: {linear.get('priority', 'N/A')}")
+    else:
+        md_lines.append("No ticket found.")
+    md_lines.append("")
+
+    # GitHub PR section
+    md_lines.append("## GitHub PR")
+    github = context.get("github", {})
+    pr_data = github.get("pr", {})
+    pr_number = pr_data.get("number")
+    if pr_number:
+        md_lines.append(f"- PR #{pr_number}: {pr_data.get('title', 'N/A')}")
+        md_lines.append(f"- URL: {pr_data.get('url', 'N/A')}")
+        unresolved = pr_data.get("unresolved_comments", len(pr_data.get("comments", [])))
+        md_lines.append(f"- Unresolved Comments: {unresolved}")
+        reviewers = pr_data.get("reviewers", [])
+        if reviewers:
+            rev_str = ", ".join([r.get("login", "unknown") for r in reviewers])
+        else:
+            rev_str = "None"
+        md_lines.append(f"- Reviewer: {rev_str}")
+    else:
+        md_lines.append("No open PR for this branch.")
+    md_lines.append("")
+
+    # CI Status section
+    md_lines.append("## CI Status")
+    ci_data = github.get("ci", {})
+    if ci_data and ci_data.get("status") != "no_runs":
+        status_raw = ci_data.get("status", "unknown").capitalize()
+        md_lines.append(f"- Status: {status_raw}")
+        md_lines.append(f"- Last Run: {now.strftime('%Y-%m-%d %H:%M')}")
+    else:
+        md_lines.append("No CI data.")
+    md_lines.append("")
+
+    # Slack Messages section
+    md_lines.append("## Slack Messages")
+    slack = context.get("slack", {})
+    messages = slack.get("messages", [])
+    if messages:
+        for msg in messages:
+            author = msg.get("author", "unknown")
+            channel = msg.get("channel", "unknown")
+            text = msg.get("text", "")
+            md_lines.append(f"- {author} in #{channel}: \"{text}\"")
+    else:
+        md_lines.append("No recent messages.")
+    md_lines.append("")
+
+    # My Notes section
+    md_lines.append("## My Notes")
+    from storage.db import get_notes
+    notes = get_notes(branch)
+    if notes:
+        for line in notes.splitlines():
+            line = line.strip()
+            if line:
+                if line.startswith("- "):
+                    md_lines.append(line)
+                else:
+                    md_lines.append(f"- {line}")
+    else:
+        md_lines.append("- No notes.")
+    md_lines.append("")
+
+    # Last Session section
+    md_lines.append("## Last Session")
+    from storage.db import get_last_session
+    session = get_last_session(branch)
+    if session:
+        last_active = _format_last_active(str(session.get("last_active", "")))
+        files = session.get("files_touched") or []
+        files_str = ", ".join(files) if files else "None"
+        md_lines.append(f"- Last Active: {last_active}")
+        md_lines.append(f"- Files Touched: {files_str}")
+    else:
+        md_lines.append("- No previous session recorded.")
+    md_lines.append("---")
+
+    md_content = "\n".join(md_lines)
+
+    # 3. Save this file as: context-bridge-export-{branch-name}-{date}.md in the CWD
+    safe_branch = branch.replace("/", "-")
+    filename = f"context-bridge-export-{safe_branch}-{date_str}.md"
+    filepath = Path.cwd() / filename
+    filepath.write_text(md_content, encoding="utf-8")
+
+    # 4. Also print the content to terminal using Rich
+    console.print(Panel(md_content, title=filename, border_style="green", expand=False))
+
+    # 5. Show at end message
+    console.print(f"[green]✓ Exported to {filename}[/green]")
+    console.print("→ Paste this into your PR description, standup, or Slack")
+
+
+# ---------------------------------------------------------------------------
 # cb init
 # ---------------------------------------------------------------------------
 
