@@ -108,6 +108,10 @@ cb status
 - Latest CI/CD run result (pass/fail + error location)
 - Recent relevant Slack messages
 
+**Options:**
+- `--json`: Outputs a clean JSON object instead of rich terminal formatting. Perfect for scripting and piping into other tools (e.g., `cb status --json | jq '.github.ci_status'`). Missing tokens or API errors will gracefully output an `"error"` field within the JSON instead of breaking the execution.
+
+
 ---
 
 ### `cb resume`
