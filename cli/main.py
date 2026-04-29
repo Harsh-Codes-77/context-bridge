@@ -242,24 +242,22 @@ def run_status_logic(interactive: bool = True, render: bool = True) -> dict[str,
     from config import GITHUB_TOKEN, LINEAR_TOKEN, SLACK_TOKEN
 
     if not GITHUB_TOKEN:
-        if interactive:
-            raise click.ClickException("GitHub token required. Run cb init")
-        raise RuntimeError("GitHub token required. Run cb init")
-
-    # Gather GitHub details for API output.
-    try:
-        pr_data = get_pr_for_branch(branch_name, repo)
-        ci_data = get_ci_status(repo, branch_name)
-        github_summary = {
-            "pr": pr_data,
-            "ci": ci_data,
-        }
-    except Exception as exc:
-        github_error = str(exc)
-        cached_github = get_cache(branch_name, "github", max_age_minutes=240)
-        if isinstance(cached_github, dict) and cached_github:
-            github_summary = cached_github
-            github_error = f"{github_error} (showing cached GitHub context)"
+        github_error = "token not configured"
+    else:
+        # Gather GitHub details for API output.
+        try:
+            pr_data = get_pr_for_branch(branch_name, repo)
+            ci_data = get_ci_status(repo, branch_name)
+            github_summary = {
+                "pr": pr_data,
+                "ci": ci_data,
+            }
+        except Exception as exc:
+            github_error = str(exc)
+            cached_github = get_cache(branch_name, "github", max_age_minutes=240)
+            if isinstance(cached_github, dict) and cached_github:
+                github_summary = cached_github
+                github_error = f"{github_error} (showing cached GitHub context)"
 
     # Gather Linear details for API output.
     if not LINEAR_TOKEN:
@@ -381,13 +379,82 @@ def cli() -> None:
     "Slack messages — all in one view. Uses the active repo set via\n"
     "'cb repo'.",
 )
-def status() -> None:
+@click.option("--json", "as_json", is_flag=True, help="Output clean JSON instead of rich terminal output.")
+def status(as_json: bool) -> None:
     """Show cross-tool context and persist the current session."""
-    console.print("[cyan]Fetching your context...[/cyan]")
+    if not as_json:
+        console.print("[cyan]Fetching your context...[/cyan]")
 
     try:
-        run_status_logic(interactive=True, render=True)
+        context = run_status_logic(interactive=not as_json, render=not as_json)
+        if as_json:
+            output = {
+                "branch": context.get("branch_name"),
+                "repo": context.get("repo"),
+                "fetched_at": context.get("fetched_at"),
+            }
+            
+            github_data = context.get("github", {})
+            github_error = context.get("github_error")
+            if github_error:
+                if github_error == "token not configured":
+                    output["github"] = {"error": "token not configured"}
+                else:
+                    output["github"] = {"error": github_error}
+            elif github_data:
+                pr = github_data.get("pr", {})
+                ci = github_data.get("ci", {})
+                output["github"] = {
+                    "pr_number": pr.get("number"),
+                    "pr_title": pr.get("title"),
+                    "pr_url": pr.get("url"),
+                    "unresolved_comments": pr.get("unresolved_comments", len(pr.get("comments", []))),
+                    "ci_status": ci.get("status"),
+                    "ci_conclusion": ci.get("conclusion"),
+                }
+            else:
+                output["github"] = {"error": "unknown error"}
+
+            linear_data = context.get("linear", {})
+            linear_error = context.get("linear_error")
+            if linear_error:
+                output["linear"] = {"error": linear_error}
+            elif linear_data.get("title") == "Linear skipped (no token)":
+                output["linear"] = {"error": "token not configured"}
+            elif linear_data.get("ticket_id"):
+                output["linear"] = {
+                    "ticket_id": linear_data.get("ticket_id"),
+                    "title": linear_data.get("title"),
+                    "status": linear_data.get("status"),
+                    "assignee": linear_data.get("assignee"),
+                    "priority": linear_data.get("priority"),
+                }
+            else:
+                output["linear"] = {"error": "no ticket id found in branch"}
+                
+            slack_data = context.get("slack", {})
+            slack_error = context.get("slack_error")
+            if slack_error:
+                output["slack"] = {"error": slack_error}
+            elif slack_data.get("status") == "skipped":
+                output["slack"] = {"error": "token not configured"}
+            else:
+                messages = []
+                for msg in slack_data.get("messages", []):
+                    messages.append({
+                        "user": msg.get("author"),
+                        "channel": msg.get("channel"),
+                        "text": msg.get("text"),
+                        "timestamp": msg.get("timestamp"),
+                    })
+                output["slack"] = {"messages": messages}
+
+            print(json.dumps(output, indent=2))
+            
     except Exception as exc:
+        if as_json:
+            print(json.dumps({"error": str(exc)}, indent=2))
+            sys.exit(1)
         raise click.ClickException(str(exc)) from exc
 
 
