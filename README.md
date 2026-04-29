@@ -94,6 +94,26 @@ You can manage repos anytime with `cb repo` — no need to re-enter tokens.
 
 ## ⚡ Commands
 
+| Command | Description |
+|---|---|
+| `cb status` | Fetch GitHub + Linear + Slack context for the current branch. |
+| `cb status --json` | Output clean JSON instead of rich terminal output. |
+| `cb resume` | Resume context from your last session on this branch. |
+| `cb export` | Export all context for the current branch to a markdown file. |
+| `cb web` | Start local context-bridge web dashboard. |
+| `cb init` | Run first-time setup for API tokens and default repo. |
+| `cb repo` | Manage saved repos — add, switch, list, or remove. |
+| `cb repo add` | Add a new repo and set it as the active one. |
+| `cb repo use` | Switch the active repo to one you've already added. |
+| `cb repo list` | Show all saved repos. |
+| `cb repo current` | Print the currently active repo. |
+| `cb repo remove` | Remove a saved repo. |
+| `cb notes` | Leave yourself reminders or context tied directly to your active branch session. |
+| `cb notes add` | Add a timestamped note to the current branch. |
+| `cb notes show` | Display all notes associated with your current branch. |
+| `cb notes clear` | Clear all notes attached to your current branch. |
+| `cb doctor` | Check cb installation and local configuration health. |
+
 ### `cb status`
 Fetches and displays your complete current context - branch, PR, ticket, CI, Slack - all at once.
 
