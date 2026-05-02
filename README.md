@@ -112,6 +112,10 @@ You can manage repos anytime with `cb repo` — no need to re-enter tokens.
 | `cb notes add` | Add a timestamped note to the current branch. |
 | `cb notes show` | Display all notes associated with your current branch. |
 | `cb notes clear` | Clear all notes attached to your current branch. |
+| `cb config` | Manage CLI configuration and API tokens. |
+| `cb config show` | Show current config status (tokens and active repo). |
+| `cb config set` | Set a specific API token without re-running init. |
+| `cb config clear-token` | Remove a specific API token. |
 | `cb doctor` | Check cb installation and local configuration health. |
 
 ### `cb status`
@@ -269,6 +273,44 @@ cb notes show
 Clear all notes attached to your current branch.
 
 *📝 Fun fact: Notes automatically appear at the bottom of your `cb status` output when they exist for your branch!*
+
+---
+
+### `cb config`
+Manage your configuration and API tokens without needing to run the full `cb init` wizard again.
+
+#### `cb config show`
+Show the status of your configured tokens and active repository. Tokens are safely masked.
+```bash
+cb config show
+```
+```
+┏━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Token  ┃ Status   ┃ Last 4 chars ┃
+┡━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ GitHub │ ✓ Set    │ ...x4f2      │
+│ Linear │ ✓ Set    │ ...a9k1      │
+│ Slack  │ ✗ Not set│ —            │
+└────────┴──────────┴──────────────┘
+
+Active Repo    harsh/my-app
+```
+
+#### `cb config set <github-token | linear-token | slack-token>`
+Update or add a specific API token. The input prompt is hidden.
+```bash
+cb config set github-token
+# Enter new GitHub Token: 
+# ✓ GitHub token updated
+```
+
+#### `cb config clear-token <github | linear | slack>`
+Remove a specific API token from your configuration.
+```bash
+cb config clear-token slack
+# Remove Slack token? [y/N]: y
+# ✓ Slack token removed
+```
 
 ---
 
