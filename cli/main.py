@@ -202,6 +202,27 @@ def _upsert_env_file(path: Path, updates: dict[str, str]) -> None:
     path.write_text("\n".join(new_lines).rstrip() + "\n", encoding="utf-8")
 
 
+def _remove_env_file_key(path: Path, key_to_remove: str) -> None:
+    """Remove a key from .env file."""
+    if not path.exists():
+        return
+
+    lines = path.read_text(encoding="utf-8").splitlines()
+    new_lines: list[str] = []
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in line:
+            new_lines.append(line)
+            continue
+
+        key, _ = line.split("=", 1)
+        if key != key_to_remove:
+            new_lines.append(line)
+
+    path.write_text("\n".join(new_lines).rstrip() + "\n", encoding="utf-8")
+
+
 # ---------------------------------------------------------------------------
 # Core status logic (used by cb status and dashboard API)
 # ---------------------------------------------------------------------------
@@ -1072,6 +1093,106 @@ def notes_clear() -> None:
 
     clear_notes(branch)
     console.print("[green]✓ Notes cleared[/green]")
+
+
+# ---------------------------------------------------------------------------
+# cb config — command group for token configuration
+# ---------------------------------------------------------------------------
+
+@cli.group(
+    help="Manage CLI configuration and API tokens.\n\n"
+         "View current token status or update tokens without\n"
+         "re-running the full init wizard."
+)
+def config() -> None:
+    """Parent group for config subcommands."""
+    pass
+
+
+@config.command("set")
+@click.argument("key_type", type=click.Choice(["github-token", "linear-token", "slack-token"]))
+def config_set(key_type: str) -> None:
+    """Set a specific API token in the configuration."""
+    if key_type == "github-token":
+        name = "GitHub Token"
+        env_key = "GITHUB_TOKEN"
+    elif key_type == "linear-token":
+        name = "Linear Token"
+        env_key = "LINEAR_TOKEN"
+    elif key_type == "slack-token":
+        name = "Slack Token"
+        env_key = "SLACK_TOKEN"
+        
+    val = click.prompt(f"Enter new {name}", hide_input=True).strip()
+    if val:
+        _upsert_env_file(APP_ENV_PATH, {env_key: val})
+        
+        project_env_path = Path.cwd() / ".env"
+        if project_env_path.exists() and project_env_path != APP_ENV_PATH:
+            _upsert_env_file(project_env_path, {env_key: val})
+            
+        console.print(f"[green]✓ {name.replace(' Token', ' token')} updated[/green]")
+
+
+@config.command("show")
+def config_show() -> None:
+    """Show current config status."""
+    if not APP_ENV_PATH.exists() and not Path.cwd().joinpath(".env").exists():
+        console.print("No config found. Run cb init first.")
+        raise SystemExit(1)
+        
+    from config import GITHUB_TOKEN, LINEAR_TOKEN, SLACK_TOKEN
+    
+    table = Table(border_style="bright_blue", expand=False)
+    table.add_column("Token", style="bold")
+    table.add_column("Status")
+    table.add_column("Last 4 chars")
+    
+    def mask_token(token: str | None) -> str:
+        if not token:
+            return "—"
+        if len(token) <= 4:
+            return "..." + token
+        return "..." + token[-4:]
+        
+    def status_label(token: str | None) -> str:
+        return "[green]✓ Set[/green]" if token else "[red]✗ Not set[/red]"
+
+    table.add_row("GitHub", status_label(GITHUB_TOKEN), mask_token(GITHUB_TOKEN))
+    table.add_row("Linear", status_label(LINEAR_TOKEN), mask_token(LINEAR_TOKEN))
+    table.add_row("Slack", status_label(SLACK_TOKEN), mask_token(SLACK_TOKEN))
+    
+    console.print(table)
+    console.print()
+    
+    active_repo = get_active_repo()
+    console.print(f"Active Repo    [bold]{active_repo or 'Not set'}[/bold]")
+
+
+@config.command("clear-token")
+@click.argument("key_type", type=click.Choice(["github", "linear", "slack"]))
+def config_clear_token(key_type: str) -> None:
+    """Remove a specific API token from the configuration."""
+    if key_type == "github":
+        name = "GitHub"
+        env_key = "GITHUB_TOKEN"
+    elif key_type == "linear":
+        name = "Linear"
+        env_key = "LINEAR_TOKEN"
+    elif key_type == "slack":
+        name = "Slack"
+        env_key = "SLACK_TOKEN"
+        
+    if click.confirm(f"Remove {name} token? [y/N]", default=False):
+        _remove_env_file_key(APP_ENV_PATH, env_key)
+        
+        project_env_path = Path.cwd() / ".env"
+        if project_env_path.exists() and project_env_path != APP_ENV_PATH:
+            _remove_env_file_key(project_env_path, env_key)
+            
+        console.print(f"[green]✓ {name} token removed[/green]")
+    else:
+        console.print("[dim]Cancelled.[/dim]")
 
 
 if __name__ == "__main__":
