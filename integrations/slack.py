@@ -295,10 +295,11 @@ def get_recent_messages(
         ) from fallback_exc
 
 
-def display_slack_summary(branch_name: str, ticket_id: str | None) -> None:
+def display_slack_summary(branch_name: str, ticket_id: str | None, summary: dict[str, Any] | None = None) -> None:
     """Print a compact Slack summary panel for branch/ticket context."""
     try:
-        summary = get_recent_messages(branch_name, ticket_id, max_messages=3)
+        if summary is None:
+            summary = get_recent_messages(branch_name, ticket_id, max_messages=3)
     except Exception as exc:
         err_str = str(exc)
         if "invalid_auth" in err_str:

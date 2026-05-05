@@ -246,12 +246,17 @@ def get_ci_status(repo: str, branch_name: str) -> dict[str, str | None]:
     }
 
 
-def display_github_summary(repo: str) -> None:
+def display_github_summary(repo: str, branch_name: str | None = None, data: dict[str, Any] | None = None) -> None:
     """Fetch branch/PR/CI details and print a rich terminal summary panel."""
     try:
-        branch_name = get_current_branch()
-        pr_data = get_pr_for_branch(branch_name, repo)
-        ci_data = get_ci_status(repo, branch_name)
+        if not branch_name:
+            branch_name = get_current_branch()
+        if data is not None:
+            pr_data = data.get("pr", {})
+            ci_data = data.get("ci", {})
+        else:
+            pr_data = get_pr_for_branch(branch_name, repo)
+            ci_data = get_ci_status(repo, branch_name)
     except Exception as exc:
         console.print(f"[bold red]GitHub summary failed:[/bold red] {exc}")
         return

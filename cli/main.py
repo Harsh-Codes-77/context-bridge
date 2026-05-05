@@ -13,6 +13,9 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 
 # Keep local modules importable when cb is launched via an installed entrypoint.
@@ -251,78 +254,119 @@ def run_status_logic(interactive: bool = True, render: bool = True) -> dict[str,
     branch_name = _get_current_branch()
     files = _get_touched_files()
 
-    github_summary: dict[str, Any] = {}
-    linear_summary: dict[str, Any] = {}
-    slack_summary: dict[str, Any] = {}
-    github_error: str | None = None
-    linear_error: str | None = None
-    slack_error: str | None = None
-
     ticket_id = extract_ticket_id(branch_name)
 
     from config import GITHUB_TOKEN, LINEAR_TOKEN, SLACK_TOKEN
 
-    if not GITHUB_TOKEN:
-        github_error = "token not configured"
-    else:
-        # Gather GitHub details for API output.
+    def _fetch_github() -> dict[str, Any]:
+        if not GITHUB_TOKEN:
+            return {"error": "token not configured"}
         try:
             pr_data = get_pr_for_branch(branch_name, repo)
             ci_data = get_ci_status(repo, branch_name)
-            github_summary = {
-                "pr": pr_data,
-                "ci": ci_data,
+            return {"pr": pr_data, "ci": ci_data}
+        except Exception as exc:
+            err = str(exc)
+            cached = get_cache(branch_name, "github", max_age_minutes=240)
+            if isinstance(cached, dict) and cached:
+                return {"error": f"{err} (showing cached GitHub context)", "summary": cached}
+            return {"error": err}
+
+    def _fetch_linear() -> dict[str, Any]:
+        if not LINEAR_TOKEN:
+            return {
+                "ticket_id": None,
+                "title": "Linear skipped (no token)",
+                "status": "N/A",
+                "assignee": "N/A",
+                "priority": "N/A",
+                "comments": [],
             }
-        except Exception as exc:
-            github_error = str(exc)
-            cached_github = get_cache(branch_name, "github", max_age_minutes=240)
-            if isinstance(cached_github, dict) and cached_github:
-                github_summary = cached_github
-                github_error = f"{github_error} (showing cached GitHub context)"
-
-    # Gather Linear details for API output.
-    if not LINEAR_TOKEN:
-        linear_summary = {
-            "ticket_id": None,
-            "title": "Linear skipped (no token)",
-            "status": "N/A",
-            "assignee": "N/A",
-            "priority": "N/A",
-            "comments": [],
-        }
-    elif ticket_id:
+        if not ticket_id:
+            return {
+                "ticket_id": None,
+                "title": "No ticket ID found in branch name",
+                "status": "N/A",
+                "assignee": "N/A",
+                "priority": "N/A",
+                "comments": [],
+            }
         try:
-            linear_summary = get_ticket_details(ticket_id)
+            return get_ticket_details(ticket_id)
         except Exception as exc:
-            linear_error = str(exc)
-            cached_linear = get_cache(branch_name, "linear", max_age_minutes=240)
-            if isinstance(cached_linear, dict) and cached_linear:
-                linear_summary = cached_linear
-                linear_error = f"{linear_error} (showing cached Linear context)"
-    else:
-        linear_summary = {
-            "ticket_id": None,
-            "title": "No ticket ID found in branch name",
-            "status": "N/A",
-            "assignee": "N/A",
-            "priority": "N/A",
-            "comments": [],
-        }
+            err = str(exc)
+            cached = get_cache(branch_name, "linear", max_age_minutes=240)
+            if isinstance(cached, dict) and cached:
+                return {"error": f"{err} (showing cached Linear context)", "summary": cached}
+            return {"error": err}
 
-    # Gather Slack details for API output.
-    if not SLACK_TOKEN:
-        slack_summary = {"query": "", "messages": [], "status": "skipped"}
-    else:
+    def _fetch_slack() -> dict[str, Any]:
+        if not SLACK_TOKEN:
+            return {"query": "", "messages": [], "status": "skipped"}
         try:
-            slack_summary = get_recent_messages(branch_name, ticket_id, max_messages=5)
+            return get_recent_messages(branch_name, ticket_id, max_messages=5)
         except Exception as exc:
-            slack_error = str(exc)
-            cached_slack = get_cache(branch_name, "slack", max_age_minutes=240)
-            if isinstance(cached_slack, dict) and cached_slack:
-                slack_summary = cached_slack
-                slack_error = f"{slack_error} (showing cached Slack context)"
-            else:
-                slack_summary = {"query": "", "messages": []}
+            err = str(exc)
+            cached = get_cache(branch_name, "slack", max_age_minutes=240)
+            if isinstance(cached, dict) and cached:
+                return {"error": f"{err} (showing cached Slack context)", "summary": cached}
+            return {"error": err}
+
+    start_time = time.time()
+    results: dict[str, Any] = {}
+
+    def do_fetch() -> None:
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = {
+                executor.submit(_fetch_github): "github",
+                executor.submit(_fetch_linear): "linear",
+                executor.submit(_fetch_slack): "slack",
+            }
+            for future in as_completed(futures):
+                key = futures[future]
+                try:
+                    results[key] = future.result()
+                except Exception as e:
+                    results[key] = {"error": str(e)}
+
+    if render:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+            console=console,
+        ) as progress:
+            progress.add_task(description="⚡ Fetching context in parallel...", total=None)
+            do_fetch()
+    else:
+        do_fetch()
+
+    fetch_time = time.time() - start_time
+
+    github_res = results.get("github", {})
+    linear_res = results.get("linear", {})
+    slack_res = results.get("slack", {})
+
+    github_error = github_res.pop("error", None) if "error" in github_res and not github_res.get("summary") else None
+    if "summary" in github_res:
+        github_error = github_res.pop("error", None)
+        github_summary = github_res.pop("summary")
+    else:
+        github_summary = github_res if not github_error else {}
+
+    linear_error = linear_res.pop("error", None) if "error" in linear_res and not linear_res.get("summary") else None
+    if "summary" in linear_res:
+        linear_error = linear_res.pop("error", None)
+        linear_summary = linear_res.pop("summary")
+    else:
+        linear_summary = linear_res if not linear_error else {}
+
+    slack_error = slack_res.pop("error", None) if "error" in slack_res and not slack_res.get("summary") else None
+    if "summary" in slack_res:
+        slack_error = slack_res.pop("error", None)
+        slack_summary = slack_res.pop("summary")
+    else:
+        slack_summary = slack_res if not slack_error else {}
 
     save_session(branch_name, repo, files)
 
@@ -337,23 +381,42 @@ def run_status_logic(interactive: bool = True, render: bool = True) -> dict[str,
     fetched_at_human = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     if render:
-        display_github_summary(repo)
+        if github_error:
+            console.print(f"[yellow]⚠ GitHub: {github_error}[/yellow]")
+            if github_summary:
+                display_github_summary(repo, branch_name, github_summary)
+        else:
+            display_github_summary(repo, branch_name, github_summary)
+
         if LINEAR_TOKEN:
-            display_linear_summary(branch_name)
+            if linear_error:
+                console.print(f"[yellow]⚠ Linear: {linear_error}[/yellow]")
+                if linear_summary:
+                    display_linear_summary(branch_name, linear_summary)
+            else:
+                display_linear_summary(branch_name, linear_summary)
+        else:
+            console.print("[dim]Linear skipped (no token) · Run cb init to add[/dim]")
+
         if SLACK_TOKEN:
-            display_slack_summary(branch_name, ticket_id)
+            if slack_error:
+                console.print(f"[yellow]⚠ Slack: {slack_error}[/yellow]")
+                if slack_summary:
+                    display_slack_summary(branch_name, ticket_id, slack_summary)
+            else:
+                display_slack_summary(branch_name, ticket_id, slack_summary)
+        else:
+            console.print("[dim]Slack skipped (no token) · Run cb init to add[/dim]")
+
         console.print(
             Panel(
-                f"Context fetched at [bold]{fetched_at_human}[/bold]",
+                f"Context fetched at [bold]{fetched_at_human}[/bold]\n"
+                f"Context fetched in {fetch_time:.1f}s (parallel)",
                 border_style="green",
                 title="Context Bridge",
                 expand=False,
             )
         )
-        if not LINEAR_TOKEN:
-            console.print("[dim]Linear skipped (no token) · Run cb init to add[/dim]")
-        if not SLACK_TOKEN:
-            console.print("[dim]Slack skipped (no token) · Run cb init to add[/dim]")
 
         from storage.db import get_notes
         branch_notes = get_notes(branch_name)
@@ -404,7 +467,7 @@ def cli() -> None:
 def status(as_json: bool) -> None:
     """Show cross-tool context and persist the current session."""
     if not as_json:
-        console.print("[cyan]Fetching your context...[/cyan]")
+        pass
 
     try:
         context = run_status_logic(interactive=not as_json, render=not as_json)

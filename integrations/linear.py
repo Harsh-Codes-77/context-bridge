@@ -235,7 +235,7 @@ def get_ticket_details(ticket_id: str) -> dict[str, Any]:
     }
 
 
-def display_linear_summary(branch_name: str) -> None:
+def display_linear_summary(branch_name: str, details: dict[str, Any] | None = None) -> None:
     """Show a rich summary for the Linear ticket inferred from branch name."""
     ticket_id = extract_ticket_id(branch_name)
     if not ticket_id:
@@ -246,7 +246,8 @@ def display_linear_summary(branch_name: str) -> None:
         return
 
     try:
-        details = get_ticket_details(ticket_id)
+        if details is None:
+            details = get_ticket_details(ticket_id)
     except Exception as exc:
         console.print(f"[bold red]Linear summary failed:[/bold red] {exc}")
         return
