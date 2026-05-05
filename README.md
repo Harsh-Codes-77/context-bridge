@@ -132,9 +132,12 @@ cb status
 - Latest CI/CD run result (pass/fail + error location)
 - Recent relevant Slack messages
 
+**Under the hood:**
+- ⚡ **Parallel Execution**: Uses `ThreadPoolExecutor` to fetch GitHub, Linear, and Slack data simultaneously, drastically reducing fetch time.
+- 🛡️ **Fault Tolerance**: If one integration fails (e.g., Slack token expired), the other integrations will still load successfully, and you'll see a clear warning instead of a crash.
+
 **Options:**
 - `--json`: Outputs a clean JSON object instead of rich terminal formatting. Perfect for scripting and piping into other tools (e.g., `cb status --json | jq '.github.ci_status'`). Missing tokens or API errors will gracefully output an `"error"` field within the JSON instead of breaking the execution.
-
 
 ---
 
