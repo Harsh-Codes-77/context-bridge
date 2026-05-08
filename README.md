@@ -523,6 +523,27 @@ Run `cb web` to get a beautiful local dashboard at `http://localhost:4242`.
 - 🔄 Auto-refresh (sessions every 30s, full context every 120s)
 - 🔒 Localhost-only - completely private
 
+### Dashboard Search & Filter
+
+**Find branches instantly** when you have 10+ active sessions:
+
+- 🔍 **Live Search**: Type to filter branches in real-time (no page reload)
+- ⌨️ **Keyboard Shortcut**: Press `/` anywhere to focus the search bar
+- 🎯 **Smart Matching**: Filters by branch name, repo name, or files touched (case-insensitive)
+- ✨ **Highlighted Results**: Matched text is highlighted in cyan for easy scanning
+- 📊 **Result Counter**: Shows "Showing X of Y branches" while filtering
+- ✕ **Clear Button**: Click `×` to reset search instantly
+- 💬 **Server Fallback**: GET `/api/search?q=<query>` endpoint available for larger datasets
+
+**Example:**
+```
+→ Press "/" to focus search
+→ Type "auth" → instantly shows only branches matching "auth"
+→ Type "services" → filters to branches with service-related files touched
+→ See "Showing 3 of 12 branches" while filtered
+→ Click × or clear input → back to full view
+```
+
 ---
 
 ## 🔒 Privacy First
@@ -604,6 +625,7 @@ context-bridge/
 - [x] Local web dashboard
 - [x] Multi-repo management (`cb repo`)
 - [x] `cb standup` - auto-generate daily standup from your activity
+- [x] Dashboard search & filter - find branches instantly with `/` keyboard shortcut
 - [ ] GitLab support
 - [ ] Jira integration
 - [ ] VS Code extension
