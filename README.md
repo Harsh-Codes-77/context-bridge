@@ -100,6 +100,9 @@ You can manage repos anytime with `cb repo` — no need to re-enter tokens.
 | `cb status --json` | Output clean JSON instead of rich terminal output. |
 | `cb resume` | Resume context from your last session on this branch. |
 | `cb export` | Export all context for the current branch to a markdown file. |
+| `cb standup` | Generate a daily standup report from the last 24 hours of work. |
+| `cb standup --copy` | Copy the standup report to clipboard (for quick Slack posting). |
+| `cb standup --export` | Save the standup report to a markdown file. |
 | `cb web` | Start local context-bridge web dashboard. |
 | `cb init` | Run first-time setup for API tokens and default repo. |
 | `cb repo` | Manage saved repos — add, switch, list, or remove. |
@@ -172,6 +175,138 @@ Exports all your branch context (PR info, CI status, Linear ticket, Slack messag
 ```bash
 cb export
 # ✓ Exported to context-bridge-export-fix-auth-timeout-2026-04-24.md
+```
+
+---
+
+### `cb standup`
+**[NEW - Killer Feature] Auto-generate your daily standup from the last 24 hours of work!**
+
+This command aggregates all your branch activity from the past day and generates a beautifully formatted standup report. It pulls real data from GitHub PRs, Linear tickets, and your session history.
+
+```bash
+cb standup
+```
+
+**Output:**
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 DAILY STANDUP — May 08, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ DONE (Yesterday):
+- fix/CON-3-api-timeout → Updated timeout config
+  CON-3: Implement API timeout handling
+  Status: In Progress
+
+🔄 IN PROGRESS (Today):
+- feature/CON-5-login-timeout → Resolving PR comments
+  CON-5: Login timeout after 30s
+  Status: Done
+  PR #34 → 2 new comments from Rahul
+  CI → Passing ✓
+
+⚠️ BLOCKERS:
+- PR #34 needs 1 more approval before merge
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**Smart Features:**
+- 🧠 Auto-categorizes branches as "Done" (inactive >12hrs) or "In Progress" (recent activity)
+- 🔗 Links GitHub PRs with comment counts and CI status
+- 🎫 Extracts Linear ticket IDs from branch names (e.g., `fix/CON-5-auth` → pulls ticket CON-5)
+- ⚠️ Highlights blockers (PR approvals needed, failed CI, etc.)
+- 💪 Works even with just 1 branch active in the last 24 hours
+- 🛡️ Gracefully handles missing API tokens or data
+
+#### Use Cases
+
+**Use Case 1: Daily Team Standup**
+```bash
+cb standup
+```
+Run this during your daily standup meeting to review everything you worked on in the past 24 hours. All info is organized and ready to present.
+
+**Use Case 2: Quick Slack Update**
+```bash
+cb standup --copy
+```
+Automatically copies the entire standup report to your clipboard. Then just paste it into Slack, email, or your team channel:
+- ✓ Standup copied to clipboard — paste it in Slack!
+
+**Use Case 3: Archival & Record-Keeping**
+```bash
+cb standup --export
+```
+Saves the standup as `standup-2026-05-08.md` in your current directory. Great for:
+- Keeping a daily log of what you shipped
+- Attaching to sprint retrospectives
+- Building your portfolio of completed work
+- ✓ Standup exported to standup-2026-05-08.md
+
+**Use Case 4: Full Workflow (Clipboard + File)**
+```bash
+cb standup --copy --export
+```
+Both copies to clipboard AND saves to file. Perfect for submitting to Slack while also archiving for records.
+
+#### Report Contents
+
+For each branch active in the last 24 hours, the standup includes:
+
+| Item | Source | Example |
+|------|--------|----------|
+| **Branch Name** | Git | `feature/CON-5-login-timeout` |
+| **Work Summary** | Session history | "Resolving PR comments" |
+| **GitHub PR** | API | `#34 → 2 new comments from Rahul` |
+| **CI Status** | GitHub Actions | `CI → Passing ✓` |
+| **Linear Ticket** | Extracted from branch name | `CON-5: Login timeout fix` |
+| **Ticket Status** | Linear API | `Status: In Progress` |
+| **Blockers** | PR approval status | `PR #34 needs 1 more approval` |
+
+#### Examples
+
+**Example 1: Yesterday you shipped a feature**
+```bash
+$ cb standup
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 DAILY STANDUP — May 08, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ DONE (Yesterday):
+- feature/CON-5-login-timeout → Implemented JWT refresh logic
+  CON-5: Login timeout after 30s
+  Status: Done
+  PR #34 → Merged ✓
+  CI → Passing ✓
+```
+
+**Example 2: Today you're debugging CI failures**
+```bash
+$ cb standup
+🔄 IN PROGRESS (Today):
+- fix/CI-timeout-issue → Debugging flaky tests
+  CI → Failing ✗
+  PR #35 → Changes requested (Sarah: "needs more error handling")
+
+⚠️ BLOCKERS:
+- PR #35 needs changes requested fixes
+- CI failing on line 84
+```
+
+**Example 3: Quick Slack post**
+```bash
+$ cb standup --copy
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 DAILY STANDUP — May 08, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[...full report...]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ Standup copied to clipboard — paste it in Slack!
+
+# Then in Slack: Cmd+V (or Ctrl+V on Windows/Linux)
 ```
 
 ---
@@ -468,11 +603,11 @@ context-bridge/
 - [x] `cb resume` command
 - [x] Local web dashboard
 - [x] Multi-repo management (`cb repo`)
+- [x] `cb standup` - auto-generate daily standup from your activity
 - [ ] GitLab support
 - [ ] Jira integration
 - [ ] VS Code extension
 - [ ] Notion integration
-- [ ] `cb standup` - auto-generate daily standup from your activity
 
 ---
 
