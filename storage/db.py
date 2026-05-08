@@ -478,6 +478,48 @@ def get_all_sessions() -> list[dict[str, Any]]:
     return sessions
 
 
+def get_sessions_last_24h() -> list[dict[str, Any]]:
+    """Return all sessions active in the last 24 hours, ordered by most recent first.
+    
+    A session is considered active if its last_active timestamp is within the last 24 hours.
+    """
+    init_db()
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(hours=24)
+    cutoff_iso = cutoff.isoformat()
+    
+    with _get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, branch_name, repo, last_active, files_touched, notes
+            FROM sessions
+            WHERE last_active > ?
+            ORDER BY last_active DESC
+            """,
+            (cutoff_iso,),
+        ).fetchall()
+
+    sessions: list[dict[str, Any]] = []
+    for row in rows:
+        try:
+            files = json.loads(row["files_touched"])
+        except (TypeError, json.JSONDecodeError):
+            files = []
+
+        sessions.append(
+            {
+                "id": row["id"],
+                "branch_name": row["branch_name"],
+                "repo": row["repo"],
+                "last_active": row["last_active"],
+                "files_touched": files,
+                "notes": row["notes"],
+            }
+        )
+
+    return sessions
+
+
 if __name__ == "__main__":
     init_db()
     print("DB initialized successfully")

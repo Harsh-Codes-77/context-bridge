@@ -907,6 +907,68 @@ def web() -> None:
 
 
 # ---------------------------------------------------------------------------
+# cb standup
+# ---------------------------------------------------------------------------
+
+@cli.command(
+    help="Generate a daily standup report from the last 24 hours of work.\n\n"
+    "Aggregates all branch activity from the past day and creates a\n"
+    "formatted standup report showing what's done, in progress, and\n"
+    "any blockers. Pulls data from GitHub PRs, CI status, and Linear\n"
+    "tickets.\n\n"
+    "Options:\n"
+    "  --copy     Copy standup to clipboard (requires pyperclip)\n"
+    "  --export   Save standup to standup-YYYY-MM-DD.md file",
+)
+@click.option(
+    "--copy",
+    is_flag=True,
+    help="Copy the standup report to clipboard.",
+)
+@click.option(
+    "--export",
+    is_flag=True,
+    help="Save the standup report to a markdown file in the current directory.",
+)
+def standup(copy: bool, export: bool) -> None:
+    """Generate and display a daily standup report from the last 24 hours.
+
+    Queries all sessions active in the last 24 hours and generates a
+    formatted report. Supports --copy to clipboard and --export to file.
+    """
+    from integrations.standup import (
+        generate_standup_report,
+        copy_to_clipboard,
+        export_to_file,
+    )
+
+    # Generate the standup report (quick operation, no spinner needed)
+    standup_text = generate_standup_report()
+
+    # Display the report
+    console.print(standup_text)
+    console.print()
+
+    # Handle --copy flag
+    if copy:
+        if copy_to_clipboard(standup_text):
+            console.print("[green]✓ Standup copied to clipboard — paste it in Slack![/green]")
+        else:
+            console.print(
+                "[yellow]⚠ Could not copy to clipboard. "
+                "Is pyperclip installed? Run: pip install pyperclip[/yellow]"
+            )
+
+    # Handle --export flag
+    if export:
+        export_path = export_to_file(standup_text)
+        if export_path:
+            console.print(f"[green]✓ Standup exported to {export_path}[/green]")
+        else:
+            console.print("[red]✗ Failed to export standup to file.[/red]")
+
+
+# ---------------------------------------------------------------------------
 # cb repo — command group for multi-repo management
 # ---------------------------------------------------------------------------
 
