@@ -288,6 +288,110 @@
 
       .slack-empty { font-size: 0.75rem; color: #94a3b8; }
       .slack-msg { font-size: 0.75rem; color: #cbd5e1; }
+
+      /* ── Search bar ── */
+      .search-container {
+        width: 100%;
+        max-width: 400px;
+      }
+
+      .search-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+
+      .search-input {
+        width: 100%;
+        border-radius: 0.5rem;
+        border: 1px solid rgba(34, 211, 238, 0.5);
+        background: rgba(15, 23, 42, 0.6);
+        padding: 0.625rem 0.75rem;
+        padding-right: 2rem;
+        font-size: 0.875rem;
+        color: #e2e8f0;
+        font-family: inherit;
+        transition: all 0.15s ease;
+      }
+
+      .search-input::placeholder {
+        color: #64748b;
+      }
+
+      .search-input:focus {
+        outline: none;
+        background: rgba(15, 23, 42, 0.8);
+        border-color: rgba(34, 211, 238, 0.8);
+        box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.1);
+      }
+
+      .search-clear-btn {
+        position: absolute;
+        right: 0.5rem;
+        background: none;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        font-size: 1.25rem;
+        padding: 0.25rem 0.5rem;
+        display: none;
+        line-height: 1;
+        transition: color 0.15s ease;
+      }
+
+      .search-clear-btn:hover {
+        color: #cbd5e1;
+      }
+
+      .search-input:not(:placeholder-shown) ~ .search-clear-btn {
+        display: block;
+      }
+
+      .search-hint {
+        font-size: 0.75rem;
+        color: #94a3b8;
+        margin-top: 0.25rem;
+        display: none;
+      }
+
+      .search-hint.show {
+        display: block;
+      }
+
+      /* ── Mark highlight ── */
+      mark {
+        background: rgba(56, 189, 248, 0.3);
+        color: #a5f3fc;
+        padding: 0 0.125rem;
+        border-radius: 0.125rem;
+        font-weight: 600;
+      }
+
+      /* ── No results state ── */
+      .no-results-state {
+        grid-column: 1 / -1;
+        border-radius: 0.75rem;
+        border: 1px solid #334155;
+        background: rgba(15, 23, 42, 0.7);
+        padding: 2rem;
+        text-align: center;
+        color: #cbd5e1;
+      }
+
+      .no-results-state p {
+        margin-bottom: 0.5rem;
+      }
+
+      /* ── Search results counter ── */
+      .search-results-info {
+        font-size: 0.875rem;
+        color: #cbd5e1;
+        display: none;
+      }
+
+      .search-results-info.show {
+        display: block;
+      }
     </style>
   </head>
 
@@ -313,8 +417,31 @@
         </section>
 
         <section class="status-bar">
-          <p id="session-count" class="text-sm text-slate-300"></p>
-          <p id="status-msg" class="text-xs text-slate-400"></p>
+          <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; width: 100%;">
+            <p id="session-count" class="text-sm text-slate-300"></p>
+            <p id="search-results-info" class="search-results-info"></p>
+            <p id="status-msg" class="text-xs text-slate-400" style="margin-left: auto;"></p>
+          </div>
+          <div class="search-container" style="margin-top: 0.75rem;">
+            <div class="search-input-wrapper">
+              <input
+                id="search-input"
+                type="text"
+                class="search-input"
+                placeholder="Search branches... (type to filter)"
+                aria-label="Search branches"
+              />
+              <button
+                id="search-clear"
+                class="search-clear-btn"
+                aria-label="Clear search"
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <p class="search-hint" id="search-hint">Press "/" to search, or type above</p>
+          </div>
         </section>
 
         <section id="sessions-grid" class="sessions-grid"></section>
@@ -365,11 +492,16 @@
       const refreshBtn = document.getElementById("refresh-btn");
       const refreshDot = document.getElementById("refresh-dot");
       const template = document.getElementById("session-card-template");
+      const searchInput = document.getElementById("search-input");
+      const searchClear = document.getElementById("search-clear");
+      const searchResultsInfo = document.getElementById("search-results-info");
+      const searchHint = document.getElementById("search-hint");
 
       const SESSIONS_POLL_MS = 30000;
       const CONTEXT_POLL_MS = 120000;
       const REFRESH_THROTTLE_MS = 10000;
       let lastManualRefreshMs = 0;
+      let allSessions = [];  // Store all sessions for client-side filtering
 
       function escapeHtml(value) {
         return String(value)
@@ -378,6 +510,45 @@
           .replaceAll(">", "&gt;")
           .replaceAll('"', "&quot;")
           .replaceAll("'", "&#39;");
+      }
+
+      function highlightMatch(text, query) {
+        // Highlight matching characters in text with <mark> tags.
+        if (!query || !text) return escapeHtml(text);
+        
+        const query_lower = query.toLowerCase();
+        const text_lower = text.toLowerCase();
+        let result = "";
+        let lastIndex = 0;
+
+        // Find all occurrences of query in text (case-insensitive)
+        let startIndex = 0;
+        while ((startIndex = text_lower.indexOf(query_lower, startIndex)) !== -1) {
+          result += escapeHtml(text.substring(lastIndex, startIndex));
+          result += "<mark>" + escapeHtml(text.substring(startIndex, startIndex + query_lower.length)) + "</mark>";
+          lastIndex = startIndex + query_lower.length;
+          startIndex = lastIndex;
+        }
+        result += escapeHtml(text.substring(lastIndex));
+        return result;
+      }
+
+      function matchesQuery(session, query) {
+        // Check if session matches the search query.
+        if (!query) return true;
+        
+        const query_lower = query.toLowerCase();
+        const branch_name = String(session.branch_name || "").toLowerCase();
+        const repo = String(session.repo || "").toLowerCase();
+        const files = Array.isArray(session.files_touched) 
+          ? session.files_touched.map(f => String(f).toLowerCase()).join(" ")
+          : "";
+        
+        return (
+          branch_name.includes(query_lower) ||
+          repo.includes(query_lower) ||
+          files.includes(query_lower)
+        );
       }
 
       function formatRelativeTime(isoValue) {
@@ -490,25 +661,38 @@
         }
       }
 
-      function renderSessions(sessions) {
+      function renderSessions(sessions, query = "") {
         sessionsGrid.innerHTML = "";
 
         if (!Array.isArray(sessions) || sessions.length === 0) {
-          sessionsGrid.innerHTML = `
-            <div class="empty-state">
-              No sessions yet. Run <strong>cb status</strong> from your repository to populate context.
-            </div>
-          `;
-          sessionCount.textContent = "0 sessions";
+          if (query) {
+            sessionsGrid.innerHTML = `
+              <div class="no-results-state">
+                <p>No branches match your search</p>
+                <p style="font-size: 0.75rem; color: #94a3b8;">Try different keywords or clear your search</p>
+              </div>
+            `;
+          } else {
+            sessionsGrid.innerHTML = `
+              <div class="empty-state">
+                No sessions yet. Run <strong>cb status</strong> from your repository to populate context.
+              </div>
+            `;
+          }
           return;
         }
-
-        sessionCount.textContent = `${sessions.length} session${sessions.length > 1 ? "s" : ""}`;
 
         for (const session of sessions) {
           const card = template.content.firstElementChild.cloneNode(true);
 
-          card.querySelector(".session-branch").textContent = session.branch_name || "unknown-branch";
+          // Highlight branch name if searching
+          const branchNameNode = card.querySelector(".session-branch");
+          if (query) {
+            branchNameNode.innerHTML = highlightMatch(session.branch_name || "unknown-branch", query);
+          } else {
+            branchNameNode.textContent = session.branch_name || "unknown-branch";
+          }
+
           card.querySelector(".session-repo").textContent = session.repo || "unknown/repo";
           card.querySelector(".session-last-active").textContent = formatRelativeTime(session.last_active);
 
@@ -535,6 +719,23 @@
         }
       }
 
+      function filterAndRenderSessions() {
+        // Filter sessions by search query and re-render.
+        const query = searchInput.value.trim();
+        const filtered = allSessions.filter(session => matchesQuery(session, query));
+        
+        renderSessions(filtered, query);
+
+        // Update result counter
+        if (query) {
+          searchResultsInfo.textContent = `Showing ${filtered.length} of ${allSessions.length} branch${allSessions.length > 1 ? "es" : ""}`;
+          searchResultsInfo.classList.add("show");
+        } else {
+          searchResultsInfo.classList.remove("show");
+          sessionCount.textContent = `${allSessions.length} session${allSessions.length > 1 ? "s" : ""}`;
+        }
+      }
+
       async function loadSessions() {
         try {
           const response = await fetch("/api/sessions", { cache: "no-store" });
@@ -543,7 +744,8 @@
             statusMsg.textContent = "Could not load sessions";
             return;
           }
-          renderSessions(data.sessions || []);
+          allSessions = data.sessions || [];
+          filterAndRenderSessions();
           statusMsg.textContent = `Updated ${new Date().toLocaleTimeString()}`;
         } catch (_err) {
           statusMsg.textContent = "Network issue while loading sessions";
@@ -593,7 +795,26 @@
         }
       }
 
+      // Event listeners
       refreshBtn.addEventListener("click", refreshStatus);
+      
+      // Search input: filter on each keystroke
+      searchInput.addEventListener("input", filterAndRenderSessions);
+      
+      // Search clear button
+      searchClear.addEventListener("click", () => {
+        searchInput.value = "";
+        searchInput.focus();
+        filterAndRenderSessions();
+      });
+
+      // Keyboard shortcut: "/" focuses search
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "/" && !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) {
+          e.preventDefault();
+          searchInput.focus();
+        }
+      });
 
       setCurrentTime();
       loadSessions();

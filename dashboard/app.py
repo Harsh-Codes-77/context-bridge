@@ -79,6 +79,43 @@ def create_app() -> Flask:
             return jsonify({"ok": False, "error": str(exc)}), 400
         return jsonify({"ok": True, **data})
 
+    @app.get("/api/search")
+    def api_search():
+        """Search sessions by branch name, repo name, or files touched.
+        
+        Query parameters:
+          q: search query string (case-insensitive)
+        
+        Returns filtered sessions matching the query.
+        """
+        query = request.args.get("q", "").strip().lower()
+        if not query:
+            sessions = get_all_sessions()
+        else:
+            sessions = get_all_sessions()
+            filtered = []
+            for session in sessions:
+                branch_name = str(session.get("branch_name", "")).lower()
+                repo = str(session.get("repo", "")).lower()
+                files_touched = session.get("files_touched", [])
+                if not isinstance(files_touched, list):
+                    files_touched = []
+                files_str = " ".join(str(f).lower() for f in files_touched)
+                
+                # Match if query found in branch, repo, or files
+                if (query in branch_name or 
+                    query in repo or 
+                    query in files_str):
+                    filtered.append(session)
+            sessions = filtered
+        
+        return jsonify({
+            "ok": True,
+            "query": request.args.get("q", ""),
+            "count": len(sessions),
+            "sessions": sessions,
+        })
+
     return app
 
 
