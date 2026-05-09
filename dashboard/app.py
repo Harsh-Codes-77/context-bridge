@@ -48,19 +48,56 @@ def create_app() -> Flask:
 
         for session in sessions:
             branch_name = str(session.get("branch_name", "")).strip()
+            repo = str(session.get("repo", "")).strip()
 
             github_cache = get_cache_with_meta(branch_name, "github", max_age_minutes=720)
             linear_cache = get_cache_with_meta(branch_name, "linear", max_age_minutes=720)
             slack_cache = get_cache_with_meta(branch_name, "slack", max_age_minutes=720)
 
-            session["github"] = github_cache.get("content") if github_cache else {}
-            session["linear"] = linear_cache.get("content") if linear_cache else {}
-            session["slack"] = slack_cache.get("content") if slack_cache else {}
+            github_content = github_cache.get("content") if github_cache else {}
+            linear_content = linear_cache.get("content") if linear_cache else {}
+            slack_content = slack_cache.get("content") if slack_cache else {}
+
+            session["github"] = github_content
+            session["linear"] = linear_content
+            session["slack"] = slack_content
             session["context_meta"] = {
                 "github": github_cache,
                 "linear": linear_cache,
                 "slack": slack_cache,
             }
+
+            # Extract URLs from cached integration data
+            # GitHub PR URL
+            pr_data = github_content.get("pr", {})
+            pr_number = pr_data.get("number")
+            pr_url = pr_data.get("url")
+            session["pr_number"] = pr_number
+            session["pr_url"] = pr_url
+
+            # GitHub Actions (CI) URL
+            ci_url = None
+            if repo:
+                ci_url = f"https://github.com/{repo}/actions"
+            session["ci_url"] = ci_url
+
+            # Linear ticket URL
+            linear_data = linear_content.get("ticket_id") if linear_content else None
+            ticket_id = linear_data if isinstance(linear_data, str) else None
+            ticket_url = None
+            if ticket_id:
+                # Construct Linear ticket URL from ticket_id (e.g., "CON-5" → "https://linear.app/...")
+                # Linear ticket URL format: https://linear.app/team-slug/issue/CON-5
+                # Since we don't have team slug, we use the identifier directly
+                ticket_url = f"https://linear.app/issue/{ticket_id}"
+            session["ticket_id"] = ticket_id
+            session["ticket_url"] = ticket_url
+
+            # GitHub repo URL
+            repo_url = None
+            if repo:
+                repo_url = f"https://github.com/{repo}"
+            session["repo_url"] = repo_url
 
         return jsonify(
             {

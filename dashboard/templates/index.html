@@ -225,6 +225,93 @@
         margin-bottom: 1rem;
       }
 
+      /* ── Styled Links/Badges ── */
+      .styled-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        border-radius: 0.375rem;
+        border: 1px solid rgba(34, 211, 238, 0.4);
+        background: rgba(6, 182, 212, 0.1);
+        padding: 0.375rem 0.625rem;
+        font-size: inherit;
+        color: #a5f3fc;
+        text-decoration: none;
+        transition: all 0.15s ease;
+        cursor: pointer;
+        white-space: nowrap;
+        position: relative;
+      }
+
+      .styled-link:hover {
+        background: rgba(34, 211, 238, 0.2);
+        border-color: rgba(34, 211, 238, 0.7);
+        text-decoration: none;
+      }
+
+      .styled-link:visited {
+        color: #a5f3fc;
+      }
+
+      .styled-link-icon {
+        font-size: 0.75rem;
+        opacity: 0.6;
+      }
+
+      .styled-link:hover .styled-link-icon {
+        opacity: 1;
+      }
+
+      .styled-link.tooltip {
+        position: relative;
+      }
+
+      .styled-link.tooltip::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%) translateY(-0.5rem);
+        background: rgba(15, 23, 42, 0.95);
+        border: 1px solid rgba(34, 211, 238, 0.5);
+        border-radius: 0.375rem;
+        padding: 0.375rem 0.5rem;
+        font-size: 0.75rem;
+        color: #a5f3fc;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+        z-index: 10;
+      }
+
+      .styled-link.tooltip:hover::after {
+        opacity: 1;
+      }
+
+      .styled-link.ci-passing {
+        border-color: rgba(110, 231, 183, 0.4);
+        background: rgba(110, 231, 183, 0.1);
+        color: #6ee7b7;
+      }
+
+      .styled-link.ci-passing:hover {
+        background: rgba(110, 231, 183, 0.2);
+        border-color: rgba(110, 231, 183, 0.7);
+      }
+
+      .styled-link.ci-failed {
+        border-color: rgba(248, 113, 113, 0.4);
+        background: rgba(248, 113, 113, 0.1);
+        color: #f87171;
+      }
+
+      .styled-link.ci-failed:hover {
+        background: rgba(248, 113, 113, 0.2);
+        border-color: rgba(248, 113, 113, 0.7);
+      }
+
+
       .context-age {
         font-size: 0.75rem;
         color: #94a3b8;
@@ -602,7 +689,25 @@
         const commentsNode = card.querySelector(".session-comments");
         const ciNode = card.querySelector(".session-ci");
 
-        if (pr.number) {
+        prNode.innerHTML = "";
+        ciNode.innerHTML = "";
+
+        // Render PR as clickable link
+        if (pr.number && session.pr_url) {
+          const prLink = document.createElement("a");
+          prLink.href = session.pr_url;
+          prLink.target = "_blank";
+          prLink.rel = "noopener";
+          prLink.className = "styled-link tooltip";
+          prLink.setAttribute("data-tooltip", session.pr_url);
+          prLink.innerHTML = `PR #${pr.number} <span class="styled-link-icon">↗</span>`;
+          
+          const titleSpan = document.createElement("span");
+          titleSpan.textContent = `: ${pr.title || "Untitled PR"}`;
+          prLink.appendChild(titleSpan);
+          
+          prNode.appendChild(prLink);
+        } else if (pr.number) {
           prNode.textContent = `PR #${pr.number}: ${pr.title || "Untitled PR"}`;
         } else if (pr.title) {
           prNode.textContent = pr.title;
@@ -613,12 +718,37 @@
         const comments = Array.isArray(pr.comments) ? pr.comments.length : 0;
         commentsNode.textContent = `Unresolved comments: ${comments}`;
 
+        // Render CI as clickable link
         const status = ci.status || "unknown";
         const conclusion = ci.conclusion || "unknown";
-        if (status === "failure" && ci.failed_job) {
-          ciNode.textContent = `CI: failure (${ci.failed_job})`;
+        if (session.ci_url) {
+          const ciLink = document.createElement("a");
+          ciLink.href = session.ci_url;
+          ciLink.target = "_blank";
+          ciLink.rel = "noopener";
+          
+          let ciText = "";
+          let ciClass = "styled-link tooltip";
+          
+          if (status === "failure" && ci.failed_job) {
+            ciText = `✗ Failed <span class="styled-link-icon">↗</span>`;
+            ciClass = "styled-link ci-failed tooltip";
+          } else if (status === "success") {
+            ciText = `✓ Passing <span class="styled-link-icon">↗</span>`;
+            ciClass = "styled-link ci-passing tooltip";
+          } else {
+            ciText = `${status} <span class="styled-link-icon">↗</span>`;
+          }
+          
+          ciLink.className = ciClass;
+          ciLink.setAttribute("data-tooltip", session.ci_url);
+          ciLink.innerHTML = ciText;
+          ciNode.appendChild(ciLink);
         } else {
-          ciNode.textContent = `CI: ${status} (${conclusion})`;
+          const statusText = status === "failure" && ci.failed_job 
+            ? `✗ Failed (${ci.failed_job})`
+            : `${status} (${conclusion})`;
+          ciNode.textContent = `CI: ${statusText}`;
         }
       }
 
@@ -627,7 +757,24 @@
         const ticketNode = card.querySelector(".session-ticket");
         const metaNode = card.querySelector(".session-linear-meta");
 
-        if (linear.ticket_id) {
+        ticketNode.innerHTML = "";
+
+        if (session.ticket_id && session.ticket_url) {
+          const ticketLink = document.createElement("a");
+          ticketLink.href = session.ticket_url;
+          ticketLink.target = "_blank";
+          ticketLink.rel = "noopener";
+          ticketLink.className = "styled-link tooltip";
+          ticketLink.setAttribute("data-tooltip", session.ticket_url);
+          ticketLink.innerHTML = `${session.ticket_id} <span class="styled-link-icon">↗</span>`;
+          
+          const titleSpan = document.createElement("span");
+          titleSpan.textContent = `: ${linear.title || "Untitled"}`;
+          ticketLink.appendChild(titleSpan);
+          
+          ticketNode.appendChild(ticketLink);
+          metaNode.textContent = `${linear.status || "Unknown"} | ${linear.assignee || "Unassigned"} | ${linear.priority || "Unknown"}`;
+        } else if (linear.ticket_id) {
           ticketNode.textContent = `${linear.ticket_id}: ${linear.title || "Untitled"}`;
           metaNode.textContent = `${linear.status || "Unknown"} | ${linear.assignee || "Unassigned"} | ${linear.priority || "Unknown"}`;
         } else {
@@ -693,7 +840,22 @@
             branchNameNode.textContent = session.branch_name || "unknown-branch";
           }
 
-          card.querySelector(".session-repo").textContent = session.repo || "unknown/repo";
+          // Render repo name as clickable link
+          const repoNode = card.querySelector(".session-repo");
+          repoNode.innerHTML = "";
+          if (session.repo_url) {
+            const repoLink = document.createElement("a");
+            repoLink.href = session.repo_url;
+            repoLink.target = "_blank";
+            repoLink.rel = "noopener";
+            repoLink.className = "styled-link tooltip";
+            repoLink.setAttribute("data-tooltip", session.repo_url);
+            repoLink.innerHTML = `${session.repo || "unknown/repo"} <span class="styled-link-icon">↗</span>`;
+            repoNode.appendChild(repoLink);
+          } else {
+            repoNode.textContent = session.repo || "unknown/repo";
+          }
+
           card.querySelector(".session-last-active").textContent = formatRelativeTime(session.last_active);
 
           const filesWrap = card.querySelector(".session-files");
