@@ -138,6 +138,30 @@
       .btn-refresh:active { transform: translateY(0); }
       .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
 
+      .btn-cleanup {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-radius: 0.5rem;
+        border: 1px solid rgba(248, 113, 113, 0.6);
+        background: rgba(248, 113, 113, 0.1);
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #f87171;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        font-family: inherit;
+      }
+
+      .btn-cleanup:hover {
+        background: rgba(248, 113, 113, 0.2);
+        transform: translateY(-1px);
+      }
+
+      .btn-cleanup:active { transform: translateY(0); }
+      .btn-cleanup:disabled { opacity: 0.5; cursor: not-allowed; }
+
       .refresh-dot {
         width: 0.5rem;
         height: 0.5rem;
@@ -182,6 +206,7 @@
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
         transition: all 0.2s ease;
         animation: rise 500ms ease-out both;
+        position: relative;
       }
 
       .card:hover {
@@ -192,6 +217,40 @@
       @keyframes rise {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
+      }
+
+      .card-delete-btn {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        width: 1.75rem;
+        height: 1.75rem;
+        border: none;
+        border-radius: 0.375rem;
+        background: rgba(248, 113, 113, 0.1);
+        color: #f87171;
+        font-size: 1.25rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s ease;
+        opacity: 0;
+        visibility: hidden;
+      }
+
+      .card:hover .card-delete-btn {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .card-delete-btn:hover {
+        background: rgba(248, 113, 113, 0.3);
+        transform: scale(1.1);
+      }
+
+      .card-delete-btn:active {
+        transform: scale(0.95);
       }
 
       .card-header {
@@ -479,6 +538,168 @@
       .search-results-info.show {
         display: block;
       }
+
+      /* ── Dialog modal ── */
+      .dialog-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        animation: fadeInOverlay 200ms ease-out;
+      }
+
+      .dialog-overlay.active {
+        display: flex;
+      }
+
+      @keyframes fadeInOverlay {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      .dialog-box {
+        border-radius: 0.75rem;
+        border: 1px solid rgba(34, 211, 238, 0.3);
+        background: rgba(2, 6, 23, 0.95);
+        padding: 1.5rem;
+        max-width: 400px;
+        box-shadow: 0 20px 45px rgba(0, 0, 0, 0.8);
+        animation: slideUp 200ms ease-out;
+      }
+
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .dialog-title {
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: #f1f5f9;
+        margin-bottom: 0.75rem;
+      }
+
+      .dialog-message {
+        font-size: 0.875rem;
+        color: #cbd5e1;
+        margin-bottom: 1.5rem;
+        line-height: 1.5;
+      }
+
+      .dialog-buttons {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: flex-end;
+      }
+
+      .dialog-btn {
+        border-radius: 0.375rem;
+        border: 1px solid transparent;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        font-family: inherit;
+      }
+
+      .dialog-btn-cancel {
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: rgba(30, 41, 59, 0.8);
+        color: #cbd5e1;
+      }
+
+      .dialog-btn-cancel:hover {
+        background: rgba(51, 65, 85, 0.8);
+      }
+
+      .dialog-btn-delete {
+        background: #dc2626;
+        color: white;
+      }
+
+      .dialog-btn-delete:hover {
+        background: #b91c1c;
+      }
+
+      .dialog-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* ── Card removal animation ── */
+      @keyframes slideOutUp {
+        from {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        to {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+      }
+
+      .card.removing {
+        animation: slideOutUp 300ms ease-out forwards;
+      }
+
+      /* ── Toast notification ── */
+      .toast {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        border-radius: 0.5rem;
+        padding: 1rem 1.25rem;
+        font-size: 0.875rem;
+        z-index: 999;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        animation: slideInToast 300ms ease-out;
+      }
+
+      @keyframes slideInToast {
+        from {
+          opacity: 0;
+          transform: translateX(100%);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      @keyframes slideOutToast {
+        from {
+          opacity: 1;
+          transform: translateX(0);
+        }
+        to {
+          opacity: 0;
+          transform: translateX(100%);
+        }
+      }
+
+      .toast.removing {
+        animation: slideOutToast 300ms ease-out forwards;
+      }
+
+      .toast-success {
+        border: 1px solid rgba(110, 231, 183, 0.4);
+        background: rgba(110, 231, 183, 0.1);
+        color: #6ee7b7;
+      }
+
+      .toast-error {
+        border: 1px solid rgba(248, 113, 113, 0.4);
+        background: rgba(248, 113, 113, 0.1);
+        color: #f87171;
+      }
     </style>
   </head>
 
@@ -496,6 +717,9 @@
               <span class="label">Current time:</span>
               <span id="current-time" class="font-mono" style="margin-left: 0.5rem;"></span>
             </div>
+            <button id="cleanup-btn" class="btn-cleanup">
+              🧹 Clean up old sessions
+            </button>
             <button id="refresh-btn" class="btn-refresh">
               <span id="refresh-dot" class="refresh-dot"></span>
               Refresh
@@ -535,6 +759,7 @@
 
         <template id="session-card-template">
           <article class="card">
+            <button class="card-delete-btn" aria-label="Delete session">×</button>
             <div class="card-header">
               <h2 class="session-branch branch-name"></h2>
               <span class="session-last-active time-tag"></span>
@@ -571,6 +796,18 @@
       </main>
     </div>
 
+    <!-- Dialog Overlay -->
+    <div id="dialog-overlay" class="dialog-overlay">
+      <div class="dialog-box">
+        <div class="dialog-title" id="dialog-title"></div>
+        <div class="dialog-message" id="dialog-message"></div>
+        <div class="dialog-buttons">
+          <button id="dialog-cancel" class="dialog-btn dialog-btn-cancel">Cancel</button>
+          <button id="dialog-confirm" class="dialog-btn dialog-btn-delete">Delete</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       const sessionsGrid = document.getElementById("sessions-grid");
       const sessionCount = document.getElementById("session-count");
@@ -578,17 +815,24 @@
       const timeNode = document.getElementById("current-time");
       const refreshBtn = document.getElementById("refresh-btn");
       const refreshDot = document.getElementById("refresh-dot");
+      const cleanupBtn = document.getElementById("cleanup-btn");
       const template = document.getElementById("session-card-template");
       const searchInput = document.getElementById("search-input");
       const searchClear = document.getElementById("search-clear");
       const searchResultsInfo = document.getElementById("search-results-info");
       const searchHint = document.getElementById("search-hint");
+      const dialogOverlay = document.getElementById("dialog-overlay");
+      const dialogTitle = document.getElementById("dialog-title");
+      const dialogMessage = document.getElementById("dialog-message");
+      const dialogCancel = document.getElementById("dialog-cancel");
+      const dialogConfirm = document.getElementById("dialog-confirm");
 
       const SESSIONS_POLL_MS = 30000;
       const CONTEXT_POLL_MS = 120000;
       const REFRESH_THROTTLE_MS = 10000;
       let lastManualRefreshMs = 0;
       let allSessions = [];  // Store all sessions for client-side filtering
+      let pendingAction = null;  // Store pending delete/cleanup action
 
       function escapeHtml(value) {
         return String(value)
@@ -808,6 +1052,18 @@
         }
       }
 
+      function showToast(message, type = "success") {
+        const toast = document.createElement("div");
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+          toast.classList.add("removing");
+          setTimeout(() => toast.remove(), 300);
+        }, 3000);
+      }
+
       function renderSessions(sessions, query = "") {
         sessionsGrid.innerHTML = "";
 
@@ -877,7 +1133,127 @@
           renderLinear(card, session);
           renderSlack(card, session);
 
+          // Add delete button handler
+          const deleteBtn = card.querySelector(".card-delete-btn");
+          deleteBtn.addEventListener("click", () => {
+            showDeleteDialog(session.branch_name, card);
+          });
+
           sessionsGrid.appendChild(card);
+        }
+      }
+
+      function showDeleteDialog(branchName, cardElement) {
+        dialogTitle.textContent = "Delete Session";
+        dialogMessage.textContent = `Delete session for ${escapeHtml(branchName)}? This cannot be undone.`;
+        dialogOverlay.classList.add("active");
+        
+        pendingAction = {
+          type: "delete",
+          branchName: branchName,
+          cardElement: cardElement
+        };
+
+        dialogConfirm.textContent = "Delete";
+        dialogConfirm.className = "dialog-btn dialog-btn-delete";
+      }
+
+      function showCleanupDialog() {
+        dialogTitle.textContent = "Clean Up Old Sessions";
+        dialogMessage.textContent = "Delete all sessions older than 30 days? This cannot be undone.";
+        dialogOverlay.classList.add("active");
+        
+        pendingAction = {
+          type: "cleanup",
+          days: 30
+        };
+
+        dialogConfirm.textContent = "Clean Up";
+        dialogConfirm.className = "dialog-btn dialog-btn-delete";
+      }
+
+      function closeDialog() {
+        dialogOverlay.classList.remove("active");
+        pendingAction = null;
+      }
+
+      async function confirmDelete() {
+        if (!pendingAction) return;
+
+        if (pendingAction.type === "delete") {
+          await deleteSession(pendingAction.branchName, pendingAction.cardElement);
+        } else if (pendingAction.type === "cleanup") {
+          await cleanupOldSessions(pendingAction.days);
+        }
+
+        closeDialog();
+      }
+
+      async function deleteSession(branchName, cardElement) {
+        dialogConfirm.disabled = true;
+        statusMsg.textContent = "Deleting session...";
+
+        try {
+          const encodedBranch = encodeURIComponent(branchName);
+          const response = await fetch(`/api/sessions/${encodedBranch}`, {
+            method: "DELETE",
+            cache: "no-store"
+          });
+
+          if (!response.ok) {
+            showToast(`Failed to delete session: ${response.statusText}`, "error");
+            statusMsg.textContent = "Delete failed";
+            return;
+          }
+
+          const data = await response.json();
+          if (data.success) {
+            // Animate card removal
+            cardElement.classList.add("removing");
+            setTimeout(async () => {
+              cardElement.remove();
+              // Reload sessions
+              await loadSessions();
+              showToast(`Deleted session for ${branchName}`, "success");
+            }, 300);
+          } else {
+            showToast(`Failed to delete: ${data.error || "Unknown error"}`, "error");
+          }
+        } catch (err) {
+          showToast(`Error deleting session: ${err.message}`, "error");
+        } finally {
+          dialogConfirm.disabled = false;
+        }
+      }
+
+      async function cleanupOldSessions(days) {
+        dialogConfirm.disabled = true;
+        statusMsg.textContent = "Cleaning up old sessions...";
+
+        try {
+          const response = await fetch(`/api/sessions/cleanup?days=${days}`, {
+            method: "DELETE",
+            cache: "no-store"
+          });
+
+          if (!response.ok) {
+            showToast(`Failed to cleanup sessions: ${response.statusText}`, "error");
+            statusMsg.textContent = "Cleanup failed";
+            return;
+          }
+
+          const data = await response.json();
+          if (data.success) {
+            showToast(`Deleted ${data.deleted_count} old session${data.deleted_count !== 1 ? "s" : ""}`, "success");
+            await loadSessions();
+          } else {
+            showToast(`Failed to cleanup: ${data.error || "Unknown error"}`, "error");
+          }
+        } catch (err) {
+          showToast(`Error cleaning up sessions: ${err.message}`, "error");
+        } finally {
+          dialogConfirm.disabled = false;
+          statusMsg.textContent = "";
         }
       }
 
@@ -959,6 +1335,7 @@
 
       // Event listeners
       refreshBtn.addEventListener("click", refreshStatus);
+      cleanupBtn.addEventListener("click", showCleanupDialog);
       
       // Search input: filter on each keystroke
       searchInput.addEventListener("input", filterAndRenderSessions);
@@ -968,6 +1345,24 @@
         searchInput.value = "";
         searchInput.focus();
         filterAndRenderSessions();
+      });
+
+      // Dialog buttons
+      dialogCancel.addEventListener("click", closeDialog);
+      dialogConfirm.addEventListener("click", confirmDelete);
+
+      // Close dialog on overlay click (outside the box)
+      dialogOverlay.addEventListener("click", (e) => {
+        if (e.target === dialogOverlay) {
+          closeDialog();
+        }
+      });
+
+      // Close dialog on Escape key
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && dialogOverlay.classList.contains("active")) {
+          closeDialog();
+        }
       });
 
       // Keyboard shortcut: "/" focuses search

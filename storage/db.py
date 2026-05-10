@@ -478,6 +478,55 @@ def get_all_sessions() -> list[dict[str, Any]]:
     return sessions
 
 
+def delete_session(branch_name: str) -> int:
+    """Delete a session by branch name.
+
+    Args:
+        branch_name: Git branch name to delete.
+
+    Returns:
+        Number of rows deleted (0 or 1).
+    """
+    if not branch_name.strip():
+        raise ValueError("branch_name must not be empty")
+
+    init_db()
+    with _get_connection() as conn:
+        cursor = conn.execute(
+            "DELETE FROM sessions WHERE branch_name = ?",
+            (branch_name.strip(),),
+        )
+        conn.commit()
+    
+    return cursor.rowcount
+
+
+def delete_old_sessions(days: int = 30) -> int:
+    """Delete all sessions where last_active is older than X days.
+
+    Args:
+        days: Age threshold in days. Sessions older than this will be deleted.
+
+    Returns:
+        Number of rows deleted.
+    """
+    if days < 0:
+        raise ValueError("days must be >= 0")
+
+    init_db()
+    cutoff_time = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff_iso = cutoff_time.isoformat()
+
+    with _get_connection() as conn:
+        cursor = conn.execute(
+            "DELETE FROM sessions WHERE last_active < ?",
+            (cutoff_iso,),
+        )
+        conn.commit()
+    
+    return cursor.rowcount
+
+
 def get_sessions_last_24h() -> list[dict[str, Any]]:
     """Return all sessions active in the last 24 hours, ordered by most recent first.
     

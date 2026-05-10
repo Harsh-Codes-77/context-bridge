@@ -7,11 +7,12 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import unquote
 
 from flask import Flask, abort, jsonify, render_template, request
 
 from cli.main import run_status_logic
-from storage.db import get_all_sessions, get_cache_with_meta
+from storage.db import get_all_sessions, get_cache_with_meta, delete_session, delete_old_sessions
 
 
 LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost"}
@@ -152,6 +153,45 @@ def create_app() -> Flask:
             "count": len(sessions),
             "sessions": sessions,
         })
+
+    @app.delete("/api/sessions/<path:branch_name>")
+    def delete_branch_session(branch_name: str):
+        """Delete a session by branch name.
+        
+        Parameters:
+          branch_name: URL-encoded branch name (supports slashes via path converter)
+        
+        Returns 404 if the branch was not found.
+        """
+        try:
+            branch_name = unquote(branch_name)
+            deleted = delete_session(branch_name)
+            
+            if deleted == 0:
+                return jsonify({"success": False, "error": "Branch not found"}), 404
+            
+            return jsonify({"success": True, "deleted": branch_name})
+        except ValueError as e:
+            return jsonify({"success": False, "error": str(e)}), 400
+
+    @app.delete("/api/sessions/cleanup")
+    def cleanup_old_sessions():
+        """Delete all sessions older than the specified number of days.
+        
+        Query parameters:
+          days: Age threshold in days (default: 30)
+        
+        Returns the count of deleted sessions.
+        """
+        try:
+            days = request.args.get("days", "30", type=int)
+            if days < 0:
+                return jsonify({"success": False, "error": "days must be >= 0"}), 400
+            
+            deleted_count = delete_old_sessions(days)
+            return jsonify({"success": True, "deleted_count": deleted_count})
+        except (ValueError, TypeError) as e:
+            return jsonify({"success": False, "error": str(e)}), 400
 
     return app
 
