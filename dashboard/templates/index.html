@@ -700,6 +700,141 @@
         background: rgba(248, 113, 113, 0.1);
         color: #f87171;
       }
+
+      /* ── Keyboard Navigation ── */
+      .card.kb-focused {
+        border: 2px solid rgba(56, 189, 248, 0.8) !important;
+        box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.8), 0 20px 45px rgba(15, 23, 42, 0.55);
+        background: rgba(15, 23, 42, 1);
+      }
+
+      .nav-position {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        font-size: 0.875rem;
+        color: #94a3b8;
+        font-family: 'JetBrains Mono', monospace;
+        pointer-events: none;
+        z-index: 500;
+      }
+
+      /* ── Help Overlay ── */
+      .help-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(6px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1001;
+        animation: fadeInOverlay 200ms ease-out;
+      }
+
+      .help-overlay.active {
+        display: flex;
+      }
+
+      .help-box {
+        border-radius: 0.75rem;
+        border: 1px solid rgba(34, 211, 238, 0.3);
+        background: rgba(2, 6, 23, 0.95);
+        padding: 2rem;
+        max-width: 500px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 45px rgba(0, 0, 0, 0.8);
+        animation: slideUp 200ms ease-out;
+      }
+
+      .help-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #f1f5f9;
+        margin-bottom: 1.5rem;
+        text-align: center;
+      }
+
+      .help-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.875rem;
+      }
+
+      .help-table th {
+        text-align: left;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid rgba(34, 211, 238, 0.3);
+        color: #a5f3fc;
+        font-weight: 600;
+      }
+
+      .help-table td {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+        color: #cbd5e1;
+      }
+
+      .help-table td:first-child {
+        padding-right: 2rem;
+        color: #67e8f9;
+        font-weight: 500;
+      }
+
+      .help-close-hint {
+        margin-top: 1.5rem;
+        text-align: center;
+        font-size: 0.75rem;
+        color: #94a3b8;
+      }
+
+      /* ── Refreshing indicator ── */
+      .refreshing-indicator {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(2, 6, 23, 0.95);
+        border: 1px solid rgba(34, 211, 238, 0.3);
+        border-radius: 0.75rem;
+        padding: 2rem;
+        text-align: center;
+        z-index: 998;
+        font-size: 1rem;
+        color: #a5f3fc;
+      }
+
+      .refreshing-indicator.show {
+        display: block;
+        animation: fadeInOverlay 200ms ease-out;
+      }
+
+      .refreshing-indicator.hide {
+        animation: slideOutUp 300ms ease-out forwards;
+      }
+
+      /* ── Footer hint ── */
+      .footer-hint {
+        position: fixed;
+        bottom: 1rem;
+        left: 1rem;
+        font-size: 0.75rem;
+        color: #94a3b8;
+        font-family: 'JetBrains Mono', monospace;
+        pointer-events: none;
+        z-index: 500;
+      }
+
+      @media (max-width: 640px) {
+        .nav-position { display: none; }
+        .footer-hint { display: none; }
+      }
     </style>
   </head>
 
@@ -807,6 +942,76 @@
         </div>
       </div>
     </div>
+
+    <!-- Help Overlay -->
+    <div id="help-overlay" class="help-overlay">
+      <div class="help-box">
+        <div class="help-title">⌨️ Keyboard Shortcuts</div>
+        <table class="help-table">
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>r</td>
+              <td>Refresh context data</td>
+            </tr>
+            <tr>
+              <td>/</td>
+              <td>Focus search bar</td>
+            </tr>
+            <tr>
+              <td>Esc</td>
+              <td>Clear search / Close dialog</td>
+            </tr>
+            <tr>
+              <td>?</td>
+              <td>Show this help</td>
+            </tr>
+            <tr>
+              <td colspan="2" style="border: none; padding: 1rem 0; font-weight: 600; color: #a5f3fc;">Card Navigation</td>
+            </tr>
+            <tr>
+              <td>j / ↓</td>
+              <td>Next branch card</td>
+            </tr>
+            <tr>
+              <td>k / ↑</td>
+              <td>Previous branch card</td>
+            </tr>
+            <tr>
+              <td>Enter</td>
+              <td>Expand focused card</td>
+            </tr>
+            <tr>
+              <td>c</td>
+              <td>Copy branch name</td>
+            </tr>
+            <tr>
+              <td>g</td>
+              <td>Copy git checkout</td>
+            </tr>
+            <tr>
+              <td>Delete / x</td>
+              <td>Delete session</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="help-close-hint">Press Esc or click outside to close</div>
+      </div>
+    </div>
+
+    <!-- Navigation Position Indicator -->
+    <div id="nav-position" class="nav-position" style="display: none;"></div>
+
+    <!-- Footer Hint -->
+    <div class="footer-hint">Press <strong>?</strong> for keyboard shortcuts</div>
+
+    <!-- Refreshing Indicator -->
+    <div id="refreshing-indicator" class="refreshing-indicator">🔄 Refreshing...</div>
 
     <script>
       const sessionsGrid = document.getElementById("sessions-grid");
@@ -1333,6 +1538,232 @@
         }
       }
 
+      // ── Keyboard Navigation ──
+      const helpOverlay = document.getElementById("help-overlay");
+      const navPosition = document.getElementById("nav-position");
+      const refreshingIndicator = document.getElementById("refreshing-indicator");
+      let currentCardIndex = -1;
+      let visibleCards = [];
+
+      function getVisibleCards() {
+        return Array.from(sessionsGrid.querySelectorAll(".card"));
+      }
+
+      function updateVisibleCards() {
+        visibleCards = getVisibleCards();
+      }
+
+      function focusCard(index) {
+        if (visibleCards.length === 0) return;
+        
+        // Clamp index to valid range
+        index = Math.max(0, Math.min(index, visibleCards.length - 1));
+        
+        // Remove previous focus
+        if (currentCardIndex >= 0 && currentCardIndex < visibleCards.length) {
+          visibleCards[currentCardIndex].classList.remove("kb-focused");
+        }
+        
+        // Add focus to new card
+        currentCardIndex = index;
+        const card = visibleCards[currentCardIndex];
+        card.classList.add("kb-focused");
+        
+        // Scroll into view smoothly
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        
+        // Update position indicator
+        navPosition.textContent = `${currentCardIndex + 1} / ${visibleCards.length}`;
+        navPosition.style.display = "block";
+      }
+
+      function nextCard() {
+        if (visibleCards.length === 0) return;
+        if (currentCardIndex < 0) {
+          focusCard(0);
+        } else {
+          focusCard(currentCardIndex + 1);
+        }
+      }
+
+      function prevCard() {
+        if (visibleCards.length === 0) return;
+        if (currentCardIndex < 0) {
+          focusCard(visibleCards.length - 1);
+        } else {
+          focusCard(currentCardIndex - 1);
+        }
+      }
+
+      function getFocusedCardData() {
+        if (currentCardIndex < 0 || currentCardIndex >= visibleCards.length) {
+          return null;
+        }
+        const card = visibleCards[currentCardIndex];
+        const branchName = card.querySelector(".session-branch")?.textContent?.trim() || "";
+        return { card, branchName };
+      }
+
+      function copyToClipboard(text) {
+        if (!text) return false;
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(`Copied: ${text}`, "success");
+        }).catch(() => {
+          showToast("Failed to copy", "error");
+        });
+        return true;
+      }
+
+      function openHelpOverlay() {
+        helpOverlay.classList.add("active");
+      }
+
+      function closeHelpOverlay() {
+        helpOverlay.classList.remove("active");
+      }
+
+      function showRefreshingIndicator() {
+        refreshingIndicator.classList.add("show");
+      }
+
+      function hideRefreshingIndicator() {
+        refreshingIndicator.classList.remove("show");
+      }
+
+      // Comprehensive keyboard event listener
+      document.addEventListener("keydown", (e) => {
+        const activeElement = document.activeElement;
+        const isInputFocused = ["INPUT", "TEXTAREA"].includes(activeElement.tagName);
+        const isHelpOpen = helpOverlay.classList.contains("active");
+        const isDialogOpen = dialogOverlay.classList.contains("active");
+
+        // Escape: Close dialog/help or clear search
+        if (e.key === "Escape") {
+          if (isHelpOpen) {
+            closeHelpOverlay();
+            e.preventDefault();
+            return;
+          }
+          if (isDialogOpen) {
+            closeDialog();
+            e.preventDefault();
+            return;
+          }
+          if (isInputFocused) {
+            searchInput.value = "";
+            searchInput.blur();
+            filterAndRenderSessions();
+            currentCardIndex = -1;
+            e.preventDefault();
+            return;
+          }
+        }
+
+        // If help is open, don't process other shortcuts
+        if (isHelpOpen) {
+          return;
+        }
+
+        // ? : Show help (not in input)
+        if (e.key === "?" && !isInputFocused) {
+          openHelpOverlay();
+          e.preventDefault();
+          return;
+        }
+
+        // / : Focus search (not in input)
+        if (e.key === "/" && !isInputFocused) {
+          e.preventDefault();
+          searchInput.focus();
+          searchHint.classList.remove("show");
+          return;
+        }
+
+        // r : Refresh (not in input, not in dialog)
+        if (e.key === "r" && !isInputFocused && !isDialogOpen) {
+          showRefreshingIndicator();
+          refreshStatus().finally(() => {
+            hideRefreshingIndicator();
+          });
+          e.preventDefault();
+          return;
+        }
+
+        // Card navigation (j/k/arrows) - only if not in input and cards exist
+        if (!isInputFocused && !isDialogOpen) {
+          updateVisibleCards();
+          
+          // j or ArrowDown: Next card
+          if ((e.key === "j" || e.key === "ArrowDown") && visibleCards.length > 0) {
+            nextCard();
+            e.preventDefault();
+            return;
+          }
+
+          // k or ArrowUp: Previous card
+          if ((e.key === "k" || e.key === "ArrowUp") && visibleCards.length > 0) {
+            prevCard();
+            e.preventDefault();
+            return;
+          }
+
+          // Enter: Expand focused card (scroll to show all content)
+          if (e.key === "Enter" && currentCardIndex >= 0) {
+            const card = visibleCards[currentCardIndex];
+            card.scrollIntoView({ behavior: "smooth", block: "start" });
+            e.preventDefault();
+            return;
+          }
+
+          // c: Copy branch name
+          if (e.key === "c" && currentCardIndex >= 0) {
+            const data = getFocusedCardData();
+            if (data) {
+              copyToClipboard(data.branchName);
+            }
+            e.preventDefault();
+            return;
+          }
+
+          // g: Copy git checkout command
+          if (e.key === "g" && currentCardIndex >= 0) {
+            const data = getFocusedCardData();
+            if (data) {
+              const checkoutCmd = `git checkout ${data.branchName}`;
+              copyToClipboard(checkoutCmd);
+            }
+            e.preventDefault();
+            return;
+          }
+
+          // Delete or x: Delete focused session
+          if ((e.key === "Delete" || e.key === "x") && currentCardIndex >= 0) {
+            const data = getFocusedCardData();
+            if (data) {
+              showDeleteDialog(data.branchName, data.card);
+            }
+            e.preventDefault();
+            return;
+          }
+        }
+      });
+
+      // Close help overlay when clicking outside
+      helpOverlay.addEventListener("click", (e) => {
+        if (e.target === helpOverlay) {
+          closeHelpOverlay();
+        }
+      });
+
+      // Reset card focus when rendering
+      const originalRenderSessions = renderSessions;
+      renderSessions = function(sessions, query = "") {
+        currentCardIndex = -1;
+        navPosition.style.display = "none";
+        originalRenderSessions.call(this, sessions, query);
+        updateVisibleCards();
+      };
+
       // Event listeners
       refreshBtn.addEventListener("click", refreshStatus);
       cleanupBtn.addEventListener("click", showCleanupDialog);
@@ -1355,21 +1786,6 @@
       dialogOverlay.addEventListener("click", (e) => {
         if (e.target === dialogOverlay) {
           closeDialog();
-        }
-      });
-
-      // Close dialog on Escape key
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && dialogOverlay.classList.contains("active")) {
-          closeDialog();
-        }
-      });
-
-      // Keyboard shortcut: "/" focuses search
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "/" && !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) {
-          e.preventDefault();
-          searchInput.focus();
         }
       });
 
