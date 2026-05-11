@@ -544,6 +544,54 @@ Run `cb web` to get a beautiful local dashboard at `http://localhost:4242`.
 → Click × or clear input → back to full view
 ```
 
+### Dashboard Keyboard Shortcuts
+
+**Power users**: Navigate and control the dashboard entirely with your keyboard. No mouse needed.
+
+#### Global Shortcuts
+
+| Key | Action |
+|-----|--------|
+| **r** | Refresh all context data (shows brief indicator) |
+| **/** | Focus search bar instantly |
+| **Esc** | Clear search input OR close any dialog/modal |
+| **?** | Open keyboard shortcuts help overlay |
+
+#### Card Navigation
+
+| Key | Action |
+|-----|--------|
+| **j** or **↓** | Move focus to next branch card |
+| **k** or **↑** | Move focus to previous branch card |
+| **Enter** | Expand focused card to show full details |
+| **c** | Copy branch name of focused card |
+| **g** | Copy git checkout command of focused card |
+| **Delete** or **x** | Prompt to delete focused card's session |
+
+#### Visual Feedback
+
+- **Focused card** gets a bright cyan highlighted border (distinct from mouse hover)
+- **Position indicator** shows "3 / 12" in bottom right when navigating with keyboard
+- **Smooth scroll** keeps focused card visible and centered
+- **Footer hint** displays "Press ? for keyboard shortcuts" for discoverability
+
+#### Tips
+
+- ✅ Shortcuts **don't fire** while typing in the search box
+- ✅ All shortcuts work in **one clean event listener** (no interference)
+- ✅ Works great with **tmux/screen** or remote SSH sessions
+- ✅ Press **?** anytime to see the help overlay with all available shortcuts
+
+**Example workflow:**
+```
+→ Press "/" → Type "auth" → See matching branches
+→ Press "j" to move down → Focus on "fix/auth-timeout"
+→ Press "g" → Copies "git checkout fix/auth-timeout"
+→ Paste in terminal, continue coding
+→ Back in dashboard, press "r" → Refreshes all context
+→ Done without touching the mouse once!
+```
+
 ---
 
 ## 🔒 Privacy First
