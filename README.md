@@ -20,6 +20,8 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-f97316?style=flat-square)](CONTRIBUTING.md)
 [![Made with ❤️](https://img.shields.io/badge/Made%20with-❤️-e11d48?style=flat-square)](https://github.com/Harsh-Codes-77/context-bridge)
 
+**✨ New:** Click-to-copy branch names and git checkout commands with keyboard shortcuts `c` and `g`!
+
 <br/>
 
 [🚀 Quick Start](#-quick-start) · [⚡ Commands](#-commands) · [🔌 Integrations](#-integrations) · [🖥️ Dashboard](#️-web-dashboard) · [🤝 Contributing](#-contributing)
@@ -575,6 +577,40 @@ Run `cb web` to get a beautiful local dashboard at `http://localhost:4242`.
 - **Smooth scroll** keeps focused card visible and centered
 - **Footer hint** displays "Press ? for keyboard shortcuts" for discoverability
 
+### Click-to-Copy Branch Names & Git Commands
+
+**No more manual copy-paste!** Quickly copy branch names and git commands with a single click or keyboard shortcut.
+
+#### Click to Copy
+
+**Branch Name:**
+- Hover over the branch name → a copy icon (📋) appears
+- Click the branch name or the icon to copy to clipboard
+- Inline "✓ Copied!" feedback displays for 2 seconds
+- Toast notification shows at bottom-right confirming the copy
+
+**Git Checkout Command:**
+- Click the button below the branch name showing `📋 git checkout fix/branch-name`
+- Copies the full git command to your clipboard
+- Same "✓ Copied!" feedback and toast notification
+
+#### Keyboard Shortcuts for Copying
+
+When a branch card is focused (using `j`/`k` navigation):
+
+| Key | Action |
+|-----|--------|
+| **c** | Copy branch name to clipboard |
+| **g** | Copy git checkout command to clipboard |
+
+Both show inline feedback and toast notifications on success.
+
+#### Fallback for Older Browsers
+
+If your browser doesn't support the modern Clipboard API:
+1. **First fallback**: Uses `document.execCommand('copy')` for older browsers
+2. **Last resort**: Shows a modal popup with the text pre-selected so you can manually copy with Ctrl+C / Cmd+C
+
 #### Tips
 
 - ✅ Shortcuts **don't fire** while typing in the search box
@@ -674,6 +710,7 @@ context-bridge/
 - [x] Multi-repo management (`cb repo`)
 - [x] `cb standup` - auto-generate daily standup from your activity
 - [x] Dashboard search & filter - find branches instantly with `/` keyboard shortcut
+- [x] Click-to-copy branch names and git commands with keyboard shortcuts
 - [ ] GitLab support
 - [ ] Jira integration
 - [ ] VS Code extension
