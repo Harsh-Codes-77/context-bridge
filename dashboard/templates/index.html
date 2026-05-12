@@ -268,6 +268,111 @@
         color: #a5f3fc;
       }
 
+      /* ── Branch copy functionality ── */
+      .branch-name-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.75rem;
+      }
+
+      .branch-name-container {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+      }
+
+      .branch-name {
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+        transition: all 0.15s ease;
+        user-select: all;
+      }
+
+      .branch-name:hover {
+        background: rgba(6, 182, 212, 0.1);
+        border: 1px solid rgba(34, 211, 238, 0.3);
+      }
+
+      .branch-copy-icon {
+        opacity: 0;
+        visibility: hidden;
+        display: inline-block;
+        cursor: pointer;
+        font-size: 0.875rem;
+        transition: opacity 0.15s ease, visibility 0.15s ease;
+        padding: 0.25rem 0.375rem;
+        border-radius: 0.375rem;
+      }
+
+      .branch-name-container:hover .branch-copy-icon {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .branch-copy-icon:hover {
+        background: rgba(6, 182, 212, 0.2);
+      }
+
+      .branch-copy-icon:active {
+        transform: scale(0.95);
+      }
+
+      .git-checkout-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        border-radius: 0.375rem;
+        border: 1px solid rgba(34, 211, 238, 0.4);
+        background: rgba(6, 182, 212, 0.1);
+        padding: 0.375rem 0.625rem;
+        font-size: 0.75rem;
+        font-family: 'JetBrains Mono', monospace;
+        color: #a5f3fc;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        font-weight: 500;
+      }
+
+      .git-checkout-btn:hover {
+        background: rgba(34, 211, 238, 0.2);
+        border-color: rgba(34, 211, 238, 0.7);
+        transform: translateY(-1px);
+      }
+
+      .git-checkout-btn:active {
+        transform: translateY(0);
+      }
+
+      .branch-copy-feedback {
+        display: none;
+        position: absolute;
+        background: rgba(110, 231, 183, 0.2);
+        border: 1px solid rgba(110, 231, 183, 0.5);
+        border-radius: 0.375rem;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        color: #6ee7b7;
+        font-weight: 600;
+        pointer-events: none;
+        white-space: nowrap;
+        z-index: 100;
+      }
+
+      .branch-copy-feedback.show {
+        display: block;
+        animation: fadeInOut 2s ease-in-out forwards;
+      }
+
+      @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateY(-4px); }
+        10% { opacity: 1; transform: translateY(0); }
+        90% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(-4px); }
+      }
+
       .time-tag {
         border-radius: 0.375rem;
         border: 1px solid #334155;
@@ -896,9 +1001,17 @@
           <article class="card">
             <button class="card-delete-btn" aria-label="Delete session">×</button>
             <div class="card-header">
-              <h2 class="session-branch branch-name"></h2>
+              <div class="branch-name-wrapper">
+                <div class="branch-name-container" style="position: relative;">
+                  <h2 class="session-branch branch-name"></h2>
+                  <button class="branch-copy-icon" aria-label="Copy branch name" title="Click to copy branch name">📋</button>
+                  <div class="branch-copy-feedback"></div>
+                </div>
+              </div>
               <span class="session-last-active time-tag"></span>
             </div>
+
+            <button class="git-checkout-btn" aria-label="Copy git checkout command" title="Click to copy git checkout command"></button>
 
             <p class="session-repo repo-name"></p>
 
@@ -1269,6 +1382,227 @@
         }, 3000);
       }
 
+      function copyTextWithFallback(text) {
+        // Try to use modern Clipboard API
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          return navigator.clipboard.writeText(text)
+            .then(() => true)
+            .catch(() => fallbackCopy(text));
+        }
+        // Fallback for older browsers
+        return fallbackCopy(text);
+      }
+
+      function fallbackCopy(text) {
+        // Create a temporary textarea to hold the text
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        
+        try {
+          textarea.select();
+          const success = document.execCommand("copy");
+          document.body.removeChild(textarea);
+          return success;
+        } catch (err) {
+          document.body.removeChild(textarea);
+          return false;
+        }
+      }
+
+      function showCopyFeedback(branchName, copyIcon) {
+        // Show "✓ Copied!" feedback next to the copy icon
+        const feedback = copyIcon.closest(".branch-name-container")?.querySelector(".branch-copy-feedback");
+        if (!feedback) return;
+
+        feedback.textContent = "✓ Copied!";
+        feedback.classList.add("show");
+
+        setTimeout(() => {
+          feedback.classList.remove("show");
+        }, 2000);
+      }
+
+      function handleBranchNameCopy(card) {
+        const branchNameElement = card.querySelector(".session-branch");
+        const copyIcon = card.querySelector(".branch-copy-icon");
+        const branchName = branchNameElement?.textContent?.trim() || "";
+
+        if (!branchName) return;
+
+        // Make branch name clickable
+        branchNameElement.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const success = copyTextWithFallback(branchName);
+          if (success) {
+            showCopyFeedback(branchName, copyIcon);
+            showToast(`Branch name copied to clipboard: ${branchName}`, "success");
+          } else {
+            showCopyFeedback(branchName, copyIcon);
+            showManualCopyModal(branchName);
+          }
+        });
+
+        // Make copy icon clickable
+        if (copyIcon) {
+          copyIcon.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const success = copyTextWithFallback(branchName);
+            if (success) {
+              showCopyFeedback(branchName, copyIcon);
+              showToast(`Branch name copied to clipboard: ${branchName}`, "success");
+            } else {
+              showCopyFeedback(branchName, copyIcon);
+              showManualCopyModal(branchName);
+            }
+          });
+        }
+      }
+
+      function handleGitCheckoutCopy(card, branchName) {
+        const gitBtn = card.querySelector(".git-checkout-btn");
+        if (!gitBtn) return;
+
+        const checkoutCmd = `git checkout ${branchName}`;
+        gitBtn.textContent = `📋 ${checkoutCmd}`;
+
+        gitBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const success = copyTextWithFallback(checkoutCmd);
+          if (success) {
+            // Show inline feedback
+            const originalText = gitBtn.textContent;
+            gitBtn.textContent = "✓ Copied!";
+            gitBtn.style.background = "rgba(110, 231, 183, 0.2)";
+            gitBtn.style.borderColor = "rgba(110, 231, 183, 0.5)";
+            gitBtn.style.color = "#6ee7b7";
+
+            showToast(`Git checkout command copied: ${checkoutCmd}`, "success");
+
+            setTimeout(() => {
+              gitBtn.textContent = originalText;
+              gitBtn.style.background = "";
+              gitBtn.style.borderColor = "";
+              gitBtn.style.color = "";
+            }, 2000);
+          } else {
+            showManualCopyModal(checkoutCmd);
+          }
+        });
+      }
+
+      function showManualCopyModal(text) {
+        // Fallback: show a modal with the text so user can copy manually
+        const modal = document.createElement("div");
+        modal.style.cssText = `
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: rgba(2, 6, 23, 0.98);
+          border: 1px solid rgba(34, 211, 238, 0.3);
+          border-radius: 0.75rem;
+          padding: 1.5rem;
+          max-width: 400px;
+          z-index: 1002;
+          box-shadow: 0 20px 45px rgba(0, 0, 0, 0.8);
+          animation: slideUp 200ms ease-out;
+        `;
+
+        const title = document.createElement("div");
+        title.style.cssText = "font-size: 1rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.75rem;";
+        title.textContent = "📋 Copy to Clipboard";
+        modal.appendChild(title);
+
+        const message = document.createElement("p");
+        message.style.cssText = "font-size: 0.875rem; color: #cbd5e1; margin-bottom: 1rem;";
+        message.textContent = "Your browser doesn't support automatic copying. Select the text below and press Ctrl+C (or Cmd+C on Mac):";
+        modal.appendChild(message);
+
+        const textBox = document.createElement("textarea");
+        textBox.value = text;
+        textBox.style.cssText = `
+          width: 100%;
+          padding: 0.75rem;
+          border: 1px solid rgba(51, 65, 85, 0.5);
+          border-radius: 0.375rem;
+          background: rgba(15, 23, 42, 0.8);
+          color: #e2e8f0;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.875rem;
+          margin-bottom: 1rem;
+          resize: vertical;
+          height: 80px;
+        `;
+        modal.appendChild(textBox);
+
+        const closeBtn = document.createElement("button");
+        closeBtn.textContent = "Close";
+        closeBtn.style.cssText = `
+          width: 100%;
+          padding: 0.5rem 1rem;
+          border: 1px solid rgba(34, 211, 238, 0.6);
+          background: rgba(6, 182, 212, 0.1);
+          color: #a5f3fc;
+          border-radius: 0.375rem;
+          cursor: pointer;
+          font-weight: 600;
+          transition: all 0.15s ease;
+        `;
+
+        closeBtn.addEventListener("mouseover", () => {
+          closeBtn.style.background = "rgba(34, 211, 238, 0.2)";
+        });
+
+        closeBtn.addEventListener("mouseout", () => {
+          closeBtn.style.background = "rgba(6, 182, 212, 0.1)";
+        });
+
+        closeBtn.addEventListener("click", () => {
+          modal.remove();
+          overlay.remove();
+        });
+
+        modal.appendChild(closeBtn);
+
+        // Select text when shown
+        setTimeout(() => {
+          textBox.select();
+        }, 100);
+
+        // Overlay
+        const overlay = document.createElement("div");
+        overlay.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(4px);
+          z-index: 1001;
+          animation: fadeInOverlay 200ms ease-out;
+        `;
+
+        overlay.addEventListener("click", (e) => {
+          if (e.target === overlay) {
+            modal.remove();
+            overlay.remove();
+          }
+        });
+
+        document.body.appendChild(overlay);
+        document.body.appendChild(modal);
+      }
+
       function renderSessions(sessions, query = "") {
         sessionsGrid.innerHTML = "";
 
@@ -1337,6 +1671,10 @@
           renderGithub(card, session);
           renderLinear(card, session);
           renderSlack(card, session);
+
+          // Add copy functionality for branch name
+          handleBranchNameCopy(card);
+          handleGitCheckoutCopy(card, session.branch_name || "unknown-branch");
 
           // Add delete button handler
           const deleteBtn = card.querySelector(".card-delete-btn");
@@ -1606,10 +1944,12 @@
 
       function copyToClipboard(text) {
         if (!text) return false;
-        navigator.clipboard.writeText(text).then(() => {
-          showToast(`Copied: ${text}`, "success");
-        }).catch(() => {
-          showToast("Failed to copy", "error");
+        copyTextWithFallback(text).then((success) => {
+          if (success) {
+            showToast(`Copied: ${text}`, "success");
+          } else {
+            showManualCopyModal(text);
+          }
         });
         return true;
       }
@@ -1719,7 +2059,19 @@
           if (e.key === "c" && currentCardIndex >= 0) {
             const data = getFocusedCardData();
             if (data) {
-              copyToClipboard(data.branchName);
+              const branchName = data.branchName;
+              copyTextWithFallback(branchName).then((success) => {
+                if (success) {
+                  showToast(`Branch name copied: ${branchName}`, "success");
+                  // Show copy icon feedback
+                  const copyIcon = data.card.querySelector(".branch-copy-icon");
+                  if (copyIcon) {
+                    showCopyFeedback(branchName, copyIcon);
+                  }
+                } else {
+                  showManualCopyModal(branchName);
+                }
+              });
             }
             e.preventDefault();
             return;
@@ -1730,7 +2082,28 @@
             const data = getFocusedCardData();
             if (data) {
               const checkoutCmd = `git checkout ${data.branchName}`;
-              copyToClipboard(checkoutCmd);
+              copyTextWithFallback(checkoutCmd).then((success) => {
+                if (success) {
+                  showToast(`Git checkout command copied: ${checkoutCmd}`, "success");
+                  // Show git button feedback
+                  const gitBtn = data.card.querySelector(".git-checkout-btn");
+                  if (gitBtn) {
+                    const originalText = gitBtn.textContent;
+                    gitBtn.textContent = "✓ Copied!";
+                    gitBtn.style.background = "rgba(110, 231, 183, 0.2)";
+                    gitBtn.style.borderColor = "rgba(110, 231, 183, 0.5)";
+                    gitBtn.style.color = "#6ee7b7";
+                    setTimeout(() => {
+                      gitBtn.textContent = originalText;
+                      gitBtn.style.background = "";
+                      gitBtn.style.borderColor = "";
+                      gitBtn.style.color = "";
+                    }, 2000);
+                  }
+                } else {
+                  showManualCopyModal(checkoutCmd);
+                }
+              });
             }
             e.preventDefault();
             return;
