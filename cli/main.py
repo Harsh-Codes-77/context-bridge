@@ -1152,8 +1152,8 @@ def notes() -> None:
 
 
 @notes.command("add")
-@click.argument("text")
-def notes_add(text: str) -> None:
+@click.argument("text", required=False)
+def notes_add(text: str | None) -> None:
     """Add a note to current branch session."""
     from storage.db import save_note
     try:
@@ -1161,6 +1161,15 @@ def notes_add(text: str) -> None:
         from integrations.github import get_current_branch
     except ImportError:
         pass
+    
+    # Prompt for text if not provided
+    if not text:
+        text = click.prompt("Enter your note", type=str)
+        if not text or not text.strip():
+            console.print("[red]Note cannot be empty.[/red]")
+            raise SystemExit(1)
+    
+    text = text.strip()
         
     branch = get_current_branch()
     if not branch:
